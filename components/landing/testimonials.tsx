@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const testimonials = [
   {
-    quote: "ResumeAI helped me land interviews at three top tech companies. The AI suggestions made my experience descriptions much more impactful.",
+    quote: "Resume Rocket helped me land interviews at three top tech companies. The AI suggestions made my experience descriptions much more impactful.",
     author: "Sarah Johnson",
     title: "Software Engineer",
     avatar: "SJ"
