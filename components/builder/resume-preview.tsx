@@ -49,7 +49,7 @@ export function ResumePreview({ resumeData, templateId }: ResumePreviewProps) {
   };
 
   return (
-    <div className={cn(
+    <div id="resume-preview" className={cn(
       "flex flex-col flex-1 bg-muted/30",
       fullscreen ? "fixed inset-0 z-50 bg-background" : ""
     )}>

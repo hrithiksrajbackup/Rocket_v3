@@ -61,7 +61,7 @@ const handleNestedDataChange = (sectionKey: string, data: any) => {
         onSave={handleSave}
       />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div  className="flex flex-1 overflow-hidden">
         <EditorSidebar
           resumeData={resumeData}
           activeSection={activeSection}
@@ -70,7 +70,7 @@ const handleNestedDataChange = (sectionKey: string, data: any) => {
           handleNestedDataChange={handleNestedDataChange}
         />
 
-        <ResumePreview resumeData={resumeData} templateId={templateId} />
+        <ResumePreview  resumeData={resumeData} templateId={templateId} />
       </div>
     </div>
   );
