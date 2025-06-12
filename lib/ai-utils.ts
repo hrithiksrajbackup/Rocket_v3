@@ -2,10 +2,18 @@
 
 import { ResumeData } from "./types";
 
-const GEMINI_API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
-const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
+const GEMINI_API_ENDPOINT =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const API_KEY =
+  process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
+  "AIzaSyBDuQBZoTaU8-UrHA142WNebYL5pEO4Y80";
 
-export type AIFeedbackType = "improve" | "shorten" | "expand" | "professional" | "keywords";
+export type AIFeedbackType =
+  | "improve"
+  | "shorten"
+  | "expand"
+  | "professional"
+  | "keywords";
 
 interface AIFeedbackRequest {
   resumeData: ResumeData;
@@ -22,15 +30,16 @@ export async function getAIFeedback({
   itemId,
   contentToImprove,
   feedbackType,
-  jobDescription
+  jobDescription,
 }: AIFeedbackRequest): Promise<string> {
-  
   if (!API_KEY) {
-    throw new Error("API key not configured. Please set the NEXT_PUBLIC_GEMINI_API_KEY environment variable.");
+    throw new Error(
+      "API key not configured. Please set the NEXT_PUBLIC_GEMINI_API_KEY environment variable."
+    );
   }
 
   let prompt = "";
-  
+
   switch (feedbackType) {
     case "improve":
       prompt = `As an expert resume writer, improve the following content for a ${resumeData.personal.title} resume. Make it more impactful, action-oriented, and professional:\n\n${contentToImprove}`;
@@ -63,30 +72,32 @@ export async function getAIFeedback({
           {
             parts: [
               {
-                text: prompt
-              }
-            ]
-          }
+                text: prompt,
+              },
+            ],
+          },
         ],
         generationConfig: {
           temperature: 0.7,
           topK: 40,
           topP: 0.95,
           maxOutputTokens: 1024,
-        }
-      })
+        },
+      }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`AI service error: ${errorData.error?.message || response.statusText}`);
+      throw new Error(
+        `AI service error: ${errorData.error?.message || response.statusText}`
+      );
     }
 
     const data = await response.json();
-    
+
     // Extract the generated text from the response
     const generatedText = data.candidates[0].content.parts[0].text;
-    
+
     return generatedText;
   } catch (error) {
     console.error("Error getting AI feedback:", error);
@@ -94,13 +105,18 @@ export async function getAIFeedback({
   }
 }
 
-export async function checkATSCompatibility(resumeData: ResumeData, jobDescription?: string): Promise<{
+export async function checkATSCompatibility(
+  resumeData: ResumeData,
+  jobDescription?: string
+): Promise<{
   score: number;
   feedback: string[];
   missingKeywords?: string[];
 }> {
   if (!API_KEY) {
-    throw new Error("API key not configured. Please set the NEXT_PUBLIC_GEMINI_API_KEY environment variable.");
+    throw new Error(
+      "API key not configured. Please set the NEXT_PUBLIC_GEMINI_API_KEY environment variable."
+    );
   }
 
   // Convert resume data to a string representation
@@ -110,30 +126,43 @@ export async function checkATSCompatibility(resumeData: ResumeData, jobDescripti
     ${resumeData.personal.summary}
     
     EXPERIENCE:
-    ${resumeData.sections.experience.items?.map(item => 
-      `${item.position} at ${item.company} (${item.startDate} - ${item.endDate})
-      ${item.description.join('\n')}`
-    ).join('\n\n')}
+    ${resumeData.sections.experience.items
+      ?.map(
+        (item) =>
+          `${item.position} at ${item.company} (${item.startDate} - ${
+            item.endDate
+          })
+      ${item.description.join("\n")}`
+      )
+      .join("\n\n")}
     
     EDUCATION:
-    ${resumeData.sections.education.items?.map(item => 
-      `${item.degree} in ${item.field}
+    ${resumeData.sections.education.items
+      ?.map(
+        (item) =>
+          `${item.degree} in ${item.field}
       ${item.institution} (${item.startDate} - ${item.endDate})`
-    ).join('\n\n')}
+      )
+      .join("\n\n")}
     
     SKILLS:
-    ${resumeData.sections.skills.groups.map(group => 
-      `${group.name}: ${group.skills.map(skill => skill.name).join(', ')}`
-    ).join('\n')}
+    ${resumeData.sections.skills.groups
+      .map(
+        (group) =>
+          `${group.name}: ${group.skills.map((skill) => skill.name).join(", ")}`
+      )
+      .join("\n")}
   `;
 
-  let prompt = "As an expert in ATS (Applicant Tracking Systems), evaluate the following resume for ATS compatibility. Provide a score from 0-100 and specific feedback on how to improve compatibility. Include comments on format, keywords, and structure.";
-  
+  let prompt =
+    "As an expert in ATS (Applicant Tracking Systems), evaluate the following resume for ATS compatibility. Provide a score from 0-100 and specific feedback on how to improve compatibility. Include comments on format, keywords, and structure.";
+
   if (jobDescription) {
-    prompt += " Also analyze if the resume contains the key requirements and skills mentioned in the job description and identify any missing important keywords.";
+    prompt +=
+      " Also analyze if the resume contains the key requirements and skills mentioned in the job description and identify any missing important keywords.";
     prompt += `\n\nJOB DESCRIPTION:\n${jobDescription}\n\n`;
   }
-  
+
   prompt += `\nRESUME:\n${resumeText}`;
 
   try {
@@ -147,55 +176,70 @@ export async function checkATSCompatibility(resumeData: ResumeData, jobDescripti
           {
             parts: [
               {
-                text: prompt
-              }
-            ]
-          }
+                text: prompt,
+              },
+            ],
+          },
         ],
         generationConfig: {
           temperature: 0.2,
           topK: 40,
           topP: 0.95,
           maxOutputTokens: 1024,
-        }
-      })
+        },
+      }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`AI service error: ${errorData.error?.message || response.statusText}`);
+      throw new Error(
+        `AI service error: ${errorData.error?.message || response.statusText}`
+      );
     }
 
     const data = await response.json();
     const generatedText = data.candidates[0].content.parts[0].text;
-    
+
     // Parse the AI's response to extract the score and feedback
     // This is a simplified approach - in a real app, you might want to structure the AI's response more precisely
     const scoreMatch = generatedText.match(/score.*?(\d+)/i);
     const score = scoreMatch ? parseInt(scoreMatch[1]) : 70;
-    
+
     // Extract feedback points (look for bullet points or numbered lists)
     const feedbackLines = generatedText
-      .split('\n')
-      .filter(line => line.match(/^[•\-\*\d]\.?\s+/) || line.includes('improve') || line.includes('recommend') || line.includes('missing'))
-      .map(line => line.trim());
-    
+      .split("\n")
+      .filter(
+        (line: string) =>
+          line.match(/^[•\-\*\d]\.?\s+/) ||
+          line.includes("improve") ||
+          line.includes("recommend") ||
+          line.includes("missing")
+      )
+      .map((line: string) => line.trim());
+
     // Extract missing keywords if job description was provided
     let missingKeywords: string[] | undefined;
     if (jobDescription) {
-      const keywordSection = generatedText.split(/missing keywords?|key skills missing|missing skills/i)[1];
+      const keywordSection = generatedText.split(
+        /missing keywords?|key skills missing|missing skills/i
+      )[1];
       if (keywordSection) {
         missingKeywords = keywordSection
-          .split('\n')
-          .filter(line => line.match(/^[•\-\*\d]\.?\s+/))
-          .map(line => line.replace(/^[•\-\*\d]\.?\s+/, '').trim());
+          .split("\n")
+          .filter((line: string) => line.match(/^[•\-\*\d]\.?\s+/))
+          .map((line: string) => line.replace(/^[•\-\*\d]\.?\s+/, "").trim());
       }
     }
-    
+
     return {
       score,
-      feedback: feedbackLines.length > 0 ? feedbackLines : ["Your resume appears to be ATS compatible. Consider tailoring it to specific job descriptions for better results."],
-      missingKeywords
+      feedback:
+        feedbackLines.length > 0
+          ? feedbackLines
+          : [
+              "Your resume appears to be ATS compatible. Consider tailoring it to specific job descriptions for better results.",
+            ],
+      missingKeywords,
     };
   } catch (error) {
     console.error("Error checking ATS compatibility:", error);
