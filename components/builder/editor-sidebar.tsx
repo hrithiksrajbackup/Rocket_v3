@@ -1,5 +1,3 @@
-
-
 // "use client";
 
 // import React, { useState } from "react";
@@ -502,7 +500,6 @@
 //   );
 // }
 
-
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -550,16 +547,66 @@ interface EditorSidebarProps {
 }
 
 const SECTIONS = [
-  { key: "personal",    icon: User,         label: "Personal",       description: "Your basic contact details" },
-  { key: "education",   icon: GraduationCap,label: "Education",      description: "Your academic background" },
-  { key: "experience",  icon: Briefcase,    label: "Experience",     description: "Your work history" },
-  { key: "skills",      icon: Code,         label: "Skills",         description: "Your technical skills" },
-  { key: "projects",    icon: Lightbulb,    label: "Projects",       description: "Your portfolio items" },
-  { key: "certifications", icon: Award,     label: "Certifications", description: "Your professional credentials" },
-  { key: "languages",   icon: Globe,        label: "Languages",      description: "Your language proficiencies" },
-  { key: "interests",   icon: Heart,        label: "Interests",      description: "Your personal interests" },
-  { key: "references",  icon: UserCheck,    label: "References",     description: "Your professional references" },
-  { key: "ai",          icon: Brain,        label: "AI Assistant",   description: "Get AI-powered suggestions" },
+  {
+    key: "personal",
+    icon: User,
+    label: "Personal",
+    description: "Your basic contact details",
+  },
+  {
+    key: "education",
+    icon: GraduationCap,
+    label: "Education",
+    description: "Your academic background",
+  },
+  {
+    key: "experience",
+    icon: Briefcase,
+    label: "Experience",
+    description: "Your work history",
+  },
+  {
+    key: "skills",
+    icon: Code,
+    label: "Skills",
+    description: "Your technical skills",
+  },
+  {
+    key: "projects",
+    icon: Lightbulb,
+    label: "Projects",
+    description: "Your portfolio items",
+  },
+  {
+    key: "certifications",
+    icon: Award,
+    label: "Certifications",
+    description: "Your professional credentials",
+  },
+  {
+    key: "languages",
+    icon: Globe,
+    label: "Languages",
+    description: "Your language proficiencies",
+  },
+  {
+    key: "interests",
+    icon: Heart,
+    label: "Interests",
+    description: "Your personal interests",
+  },
+  {
+    key: "references",
+    icon: UserCheck,
+    label: "References",
+    description: "Your professional references",
+  },
+  {
+    key: "ai",
+    icon: Brain,
+    label: "AI Assistant",
+    description: "Get AI-powered suggestions",
+  },
 ] as const;
 
 function getStatus(
@@ -589,7 +636,7 @@ function getStatus(
 }
 
 const COLLAPSED_WIDTH = "w-16";
-const EXPANDED_WIDTH  = "w-80";
+const EXPANDED_WIDTH = "w-80";
 
 export function EditorSidebar({
   resumeData,
@@ -660,8 +707,9 @@ export function EditorSidebar({
         {!collapsed && (
           <div className="px-6 py-2">
             <Progress
-              value={completion}
+              value={completion ?? 0}
               className="h-2 bg-gray-200 rounded-full shadow-inner"
+              max={100}
             />
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>Getting started</span>
@@ -759,9 +807,7 @@ export function EditorSidebar({
                 <h3 className="text-lg font-semibold text-gray-800">
                   Personal Information
                 </h3>
-                <p className="text-sm text-gray-600">
-                  Tell us about yourself
-                </p>
+                <p className="text-sm text-gray-600">Tell us about yourself</p>
               </div>
             </div>
             <PersonalSection
@@ -822,9 +868,7 @@ export function EditorSidebar({
                 <h3 className="text-lg font-semibold text-gray-800">
                   Skills & Expertise
                 </h3>
-                <p className="text-sm text-gray-600">
-                  What you’re great at
-                </p>
+                <p className="text-sm text-gray-600">What you’re great at</p>
               </div>
             </div>
             <SkillsSection
@@ -857,8 +901,8 @@ export function EditorSidebar({
             ) : (
               <div className="space-y-4">
                 <p className="text-gray-600 leading-relaxed">
-                  Get personalized suggestions to make your resume stand
-                  out from the crowd.
+                  Get personalized suggestions to make your resume stand out
+                  from the crowd.
                 </p>
                 <div className="grid gap-3">
                   <button
@@ -924,9 +968,7 @@ export function EditorSidebar({
                 <h3 className="text-lg font-semibold text-gray-800">
                   Projects
                 </h3>
-                <p className="text-sm text-gray-600">
-                  Your portfolio items
-                </p>
+                <p className="text-sm text-gray-600">Your portfolio items</p>
               </div>
             </div>
             <ProjectsSection
@@ -987,9 +1029,7 @@ export function EditorSidebar({
                 <h3 className="text-lg font-semibold text-gray-800">
                   Interests
                 </h3>
-                <p className="text-sm text-gray-600">
-                  Your personal interests
-                </p>
+                <p className="text-sm text-gray-600">Your personal interests</p>
               </div>
             </div>
             <InterestsSection
