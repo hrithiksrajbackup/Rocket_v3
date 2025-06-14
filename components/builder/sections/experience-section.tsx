@@ -295,7 +295,7 @@ export function ExperienceSection({ data, onChange }: ExperienceSectionProps) {
                               </div>
                               
                               <div className="space-y-2">
-                                {item.description.map((point, pointIndex) => (
+                                {item.description.map((point:any, pointIndex:any) => (
                                   <div key={pointIndex} className="flex gap-2 items-start">
                                     <Textarea
                                       value={point}
