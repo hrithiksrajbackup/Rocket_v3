@@ -55,7 +55,7 @@ export function ProfessionalTemplate({ resumeData }: ProfessionalTemplateProps) 
                     <span className="text-sm text-gray-600">{experience.location}</span>
                   </div>
                   <ul className="list-disc ml-5 space-y-1 text-sm">
-                    {experience.description.map((point, index) => (
+                    {experience.description.map((point:any, index:any) => (
                       <li key={index} className="leading-relaxed">{point}</li>
                     ))}
                   </ul>
