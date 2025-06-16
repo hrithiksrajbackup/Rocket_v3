@@ -854,9 +854,9 @@ export function ResumePreview({ resumeData, templateId }: ResumePreviewProps) {
               "border border-gray-200 rounded-lg overflow-hidden",
               fullscreen ? "shadow-none border-0 rounded-none" : ""
             )}
-            style={{ 
-              width: viewMode === 'mobile' ? '100%' : '210mm', 
-              minHeight: viewMode === 'mobile' ? 'auto' : '297mm',
+            style={{
+              width: viewMode === 'mobile' ? '100%' : 'auto',
+              minHeight: 'auto',
               transform: `scale(${zoom / 100})`,
               transformOrigin: 'top center'
             }}

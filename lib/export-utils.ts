@@ -1,5 +1,6 @@
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import htmlDocx from "html-docx-js/dist/html-docx";
 import { ResumeData } from "./types";
 
 export type ExportFormat = "pdf" | "png" | "docx";
@@ -233,10 +234,8 @@ export class ResumeExporter {
 
     this.updateProgress("downloading", 80, "Preparing download...");
 
-    // Create and download DOCX file
-    const blob = new Blob([docxContent], {
-      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    });
+    // Convert HTML to a real DOCX blob
+    const blob = htmlDocx.asBlob(docxContent);
 
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -259,8 +258,8 @@ export class ResumeExporter {
     clonedElement.style.position = "absolute";
     clonedElement.style.left = "-9999px";
     clonedElement.style.top = "0";
-    clonedElement.style.width = computed.width;
-    clonedElement.style.minHeight = computed.height;
+    clonedElement.style.width = `${element.scrollWidth}px`;
+    clonedElement.style.height = `${element.scrollHeight}px`;
     clonedElement.style.backgroundColor = computed.backgroundColor;
     clonedElement.style.boxShadow = "none";
     clonedElement.style.transform = computed.transform;
