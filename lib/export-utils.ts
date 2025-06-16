@@ -116,61 +116,44 @@ export class ResumeExporter {
     // Create a clone of the element for export
     const clonedElement = await this.prepareElementForExport(element);
 
+    const expectedWidth = clonedElement.scrollWidth;
+    const expectedHeight = clonedElement.scrollHeight;
+
     const canvas = await html2canvas(clonedElement, {
       scale: options.scale || 2,
       useCORS: true,
       allowTaint: true,
       backgroundColor: "#ffffff",
-      width: clonedElement.scrollWidth,
-      height: clonedElement.scrollHeight,
+      width: expectedWidth,
+      height: expectedHeight,
       onclone: (clonedDoc) => {
         // Ensure fonts are loaded in the cloned document
         this.loadFontsInClonedDocument(clonedDoc);
       },
     });
 
+    if (canvas.width !== expectedWidth || canvas.height !== expectedHeight) {
+      console.warn(
+        `Canvas size mismatch: expected ${expectedWidth}x${expectedHeight}, got ${canvas.width}x${canvas.height}`
+      );
+    }
+
     this.updateProgress("converting", 60, "Converting to PDF...");
 
-    // Calculate PDF dimensions (A4 size)
-    const imgWidth = 210; // A4 width in mm
-    const pageHeight = 297; // A4 height in mm
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const pdf = new jsPDF({
+      orientation: canvas.width >= canvas.height ? "landscape" : "portrait",
+      unit: "px",
+      format: [canvas.width, canvas.height],
+    });
 
-    const pdf = new jsPDF("p", "mm", "a4");
-
-    if (imgHeight <= pageHeight) {
-      // Single page
-      pdf.addImage(
-        canvas.toDataURL("image/png"),
-        "PNG",
-        0,
-        0,
-        imgWidth,
-        imgHeight
-      );
-    } else {
-      // Multiple pages
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      while (heightLeft > 0) {
-        if (position > 0) {
-          pdf.addPage();
-        }
-
-        pdf.addImage(
-          canvas.toDataURL("image/png"),
-          "PNG",
-          0,
-          position,
-          imgWidth,
-          imgHeight
-        );
-
-        heightLeft -= pageHeight;
-        position -= pageHeight;
-      }
-    }
+    pdf.addImage(
+      canvas.toDataURL("image/png"),
+      "PNG",
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
 
     this.updateProgress("downloading", 90, "Preparing download...");
 
@@ -190,14 +173,23 @@ export class ResumeExporter {
 
     const clonedElement = await this.prepareElementForExport(element);
 
+    const expectedWidth = clonedElement.scrollWidth;
+    const expectedHeight = clonedElement.scrollHeight;
+
     const canvas = await html2canvas(clonedElement, {
       scale: options.scale || 3, // Higher scale for better quality
       useCORS: true,
       allowTaint: true,
       backgroundColor: "#ffffff",
-      width: clonedElement.scrollWidth,
-      height: clonedElement.scrollHeight,
+      width: expectedWidth,
+      height: expectedHeight,
     });
+
+    if (canvas.width !== expectedWidth || canvas.height !== expectedHeight) {
+      console.warn(
+        `Canvas size mismatch: expected ${expectedWidth}x${expectedHeight}, got ${canvas.width}x${canvas.height}`
+      );
+    }
 
     this.updateProgress("converting", 60, "Converting to PNG...");
 
@@ -262,16 +254,18 @@ export class ResumeExporter {
     // Clone the element
     const clonedElement = element.cloneNode(true) as HTMLElement;
 
-    // Style the cloned element for export
+    // Style the cloned element for export using computed styles
+    const computed = window.getComputedStyle(element);
     clonedElement.style.position = "absolute";
     clonedElement.style.left = "-9999px";
     clonedElement.style.top = "0";
-    clonedElement.style.width = "210mm"; // A4 width
-    clonedElement.style.minHeight = "297mm"; // A4 height
-    clonedElement.style.backgroundColor = "#ffffff";
+    clonedElement.style.width = computed.width;
+    clonedElement.style.minHeight = computed.height;
+    clonedElement.style.backgroundColor = computed.backgroundColor;
     clonedElement.style.boxShadow = "none";
-    clonedElement.style.transform = "none";
-    (clonedElement.style as any).zoom = "1";
+    clonedElement.style.transform = computed.transform;
+    clonedElement.style.transformOrigin = computed.transformOrigin;
+    (clonedElement.style as any).zoom = (computed as any).zoom || "1";
 
     // Remove any interactive elements that shouldn't be in export
     const interactiveElements = clonedElement.querySelectorAll(
@@ -303,22 +297,25 @@ export class ResumeExporter {
   }
 
   private loadFontsInClonedDocument(clonedDoc: Document): void {
-    // Ensure fonts are available in the cloned document
-    const fontFaces = [
-      new FontFace(
-        "Inter",
-        "url(https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2)"
-      ),
-      // Add more fonts as needed
-    ];
+    const usedFonts = new Set<string>();
 
-    fontFaces.forEach((fontFace) => {
-      fontFace
-        .load()
-        .then((loadedFace) => {
-          clonedDoc.fonts.add(loadedFace);
-        })
-        .catch(console.warn);
+    clonedDoc.querySelectorAll("*").forEach((el) => {
+      const style = clonedDoc.defaultView?.getComputedStyle(el as Element);
+      if (!style) return;
+      const family = style.fontFamily.split(",")[0].replace(/['"]/g, "").trim();
+      const weight = style.fontWeight || "400";
+      const fontStyle = style.fontStyle || "normal";
+      usedFonts.add(`${family}|${weight}|${fontStyle}`);
+    });
+
+    document.fonts.forEach((fontFace) => {
+      const descriptor = `${fontFace.family.replace(/['"]/g, "").trim()}|${fontFace.weight || "400"}|${fontFace.style || "normal"}`;
+      if (usedFonts.has(descriptor)) {
+        fontFace
+          .load()
+          .then((loaded) => clonedDoc.fonts.add(loaded))
+          .catch(console.warn);
+      }
     });
   }
 
