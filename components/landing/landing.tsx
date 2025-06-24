@@ -7,14 +7,15 @@ import { Hero } from "@/components/landing/hero";
 import Features from "@/components/landing/features";
 import { Templates } from "@/components/landing/templates";
 import { Testimonials } from "@/components/landing/testimonials";
-import { Pricing } from "@/components/landing/pricing";
 import { FAQ } from "@/components/landing/faq";
 import { StackedFooter as Footer } from "@/components/landing/footer";
 import { FileText, Menu, X } from "lucide-react";
 import { useState } from "react";
+import { useUser, SignInButton, UserButton } from "@clerk/nextjs";
 
 export function Landing() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isSignedIn, user } = useUser();
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -50,13 +51,6 @@ export function Landing() {
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-600 group-hover:w-full transition-all duration-200" />
               </Link>
               <Link
-                href="#pricing"
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors relative group"
-              >
-                Pricing
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-600 group-hover:w-full transition-all duration-200" />
-              </Link>
-              <Link
                 href="#faq"
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors relative group"
               >
@@ -68,23 +62,40 @@ export function Landing() {
             {/* Desktop Action Buttons */}
             <div className="hidden lg:flex items-center gap-3">
               <ModeToggle />
-              <Link href="/login">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                >
-                  Log in
-                </Button>
-              </Link>
-              <Link href="/builder">
-                <Button
-                  size="sm"
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium px-6 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-                >
-                  Get Started
-                </Button>
-              </Link>
+              {isSignedIn ? (
+                <>
+                  <Link href="/dashboard">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <UserButton afterSignOutUrl="/" />
+                </>
+              ) : (
+                <>
+                  <SignInButton mode="modal">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      Log in
+                    </Button>
+                  </SignInButton>
+                  <Link href="/sign-up">
+                    <Button
+                      size="sm"
+                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium px-6 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                      Get Started
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
 
             {/* Mobile Menu Button */}
@@ -124,13 +135,6 @@ export function Landing() {
                   Templates
                 </Link>
                 <Link
-                  href="#pricing"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Pricing
-                </Link>
-                <Link
                   href="#faq"
                   className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
                   onClick={() => setMobileMenuOpen(false)}
@@ -138,26 +142,45 @@ export function Landing() {
                   FAQ
                 </Link>
                 <div className="flex flex-col gap-3 pt-4 border-t">
-                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start font-medium hover:bg-gray-100 dark:hover:bg-gray-800"
-                    >
-                      Log in
-                    </Button>
-                  </Link>
-                  <Link
-                    href="/builder"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <Button
-                      size="sm"
-                      className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-                    >
-                      Get Started
-                    </Button>
-                  </Link>
+                  {isSignedIn ? (
+                    <>
+                      <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start font-medium hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+                          Dashboard
+                        </Button>
+                      </Link>
+                      <div className="px-4">
+                        <UserButton afterSignOutUrl="/" />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <SignInButton mode="modal">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start font-medium hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+                          Log in
+                        </Button>
+                      </SignInButton>
+                      <Link
+                        href="/sign-up"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <Button
+                          size="sm"
+                          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+                        >
+                          Get Started
+                        </Button>
+                      </Link>
+                    </>
+                  )}
                 </div>
               </nav>
             </div>
@@ -168,10 +191,9 @@ export function Landing() {
       <main className="flex-1">
         <Hero />
         <Features />
-        {/* <Templates /> */}
-        {/* <Testimonials />
-        <Pricing />
-        <FAQ /> */}
+        <Templates />
+        <Testimonials />
+        <FAQ />
       </main>
 
       <Footer />

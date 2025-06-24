@@ -117,43 +117,46 @@ export class ResumeExporter {
     // Create a clone of the element for export
     const clonedElement = await this.prepareElementForExport(element);
 
-    const expectedWidth = clonedElement.scrollWidth;
-    const expectedHeight = clonedElement.scrollHeight;
+    // Set fixed dimensions for A4 paper (210mm x 297mm at 96 DPI)
+    const a4Width = 794; // 210mm at 96 DPI
+    const a4Height = 1123; // 297mm at 96 DPI
 
     const canvas = await html2canvas(clonedElement, {
       scale: options.scale || 2,
       useCORS: true,
       allowTaint: true,
       backgroundColor: "#ffffff",
-      width: expectedWidth,
-      height: expectedHeight,
+      width: a4Width,
+      height: a4Height,
       onclone: (clonedDoc) => {
         // Ensure fonts are loaded in the cloned document
         this.loadFontsInClonedDocument(clonedDoc);
       },
     });
 
-    if (canvas.width !== expectedWidth || canvas.height !== expectedHeight) {
-      console.warn(
-        `Canvas size mismatch: expected ${expectedWidth}x${expectedHeight}, got ${canvas.width}x${canvas.height}`
-      );
-    }
-
     this.updateProgress("converting", 60, "Converting to PDF...");
 
+    // Create PDF with A4 dimensions
     const pdf = new jsPDF({
-      orientation: canvas.width >= canvas.height ? "landscape" : "portrait",
-      unit: "px",
-      format: [canvas.width, canvas.height],
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
     });
 
+    // Calculate dimensions to fit A4
+    const pdfWidth = 210; // A4 width in mm
+    const pdfHeight = 297; // A4 height in mm
+    
+    // Add image to PDF, scaling to fit A4
     pdf.addImage(
-      canvas.toDataURL("image/png"),
+      canvas.toDataURL("image/png", 1.0),
       "PNG",
       0,
       0,
-      canvas.width,
-      canvas.height
+      pdfWidth,
+      pdfHeight,
+      undefined,
+      "FAST"
     );
 
     this.updateProgress("downloading", 90, "Preparing download...");
@@ -174,23 +177,19 @@ export class ResumeExporter {
 
     const clonedElement = await this.prepareElementForExport(element);
 
-    const expectedWidth = clonedElement.scrollWidth;
-    const expectedHeight = clonedElement.scrollHeight;
+    // Set high DPI for PNG export (300 DPI minimum)
+    const scale = options.scale || 3.125; // 300 DPI / 96 DPI = 3.125
+    const a4Width = 794; // 210mm at 96 DPI
+    const a4Height = 1123; // 297mm at 96 DPI
 
     const canvas = await html2canvas(clonedElement, {
-      scale: options.scale || 3, // Higher scale for better quality
+      scale: scale,
       useCORS: true,
       allowTaint: true,
       backgroundColor: "#ffffff",
-      width: expectedWidth,
-      height: expectedHeight,
+      width: a4Width,
+      height: a4Height,
     });
-
-    if (canvas.width !== expectedWidth || canvas.height !== expectedHeight) {
-      console.warn(
-        `Canvas size mismatch: expected ${expectedWidth}x${expectedHeight}, got ${canvas.width}x${canvas.height}`
-      );
-    }
 
     this.updateProgress("converting", 60, "Converting to PNG...");
 
@@ -217,7 +216,7 @@ export class ResumeExporter {
         document.body.removeChild(clonedElement);
       },
       "image/png",
-      options.quality || 1.0
+      1.0 // Maximum quality
     );
   }
 
@@ -234,7 +233,7 @@ export class ResumeExporter {
 
     this.updateProgress("downloading", 80, "Preparing download...");
 
-    // Convert HTML to a real DOCX blob
+    // Convert HTML to DOCX blob
     const blob = htmlDocx.asBlob(docxContent);
 
     const url = URL.createObjectURL(blob);
@@ -253,22 +252,21 @@ export class ResumeExporter {
     // Clone the element
     const clonedElement = element.cloneNode(true) as HTMLElement;
 
-    // Style the cloned element for export using computed styles
-    const computed = window.getComputedStyle(element);
+    // Style the cloned element for export
     clonedElement.style.position = "absolute";
     clonedElement.style.left = "-9999px";
     clonedElement.style.top = "0";
-    clonedElement.style.width = `${element.scrollWidth}px`;
-    clonedElement.style.height = `${element.scrollHeight}px`;
-    clonedElement.style.backgroundColor = computed.backgroundColor;
+    clonedElement.style.width = "210mm";
+    clonedElement.style.minHeight = "297mm";
+    clonedElement.style.backgroundColor = "#ffffff";
     clonedElement.style.boxShadow = "none";
-    clonedElement.style.transform = computed.transform;
-    clonedElement.style.transformOrigin = computed.transformOrigin;
-    (clonedElement.style as any).zoom = (computed as any).zoom || "1";
+    clonedElement.style.border = "none";
+    clonedElement.style.borderRadius = "0";
+    clonedElement.style.overflow = "visible";
 
     // Remove any interactive elements that shouldn't be in export
     const interactiveElements = clonedElement.querySelectorAll(
-      "button, .hover\\:, .focus\\:"
+      "button, .hover\\:, .focus\\:, [data-interactive]"
     );
     interactiveElements.forEach((el) => {
       if (el instanceof HTMLElement) {
@@ -319,24 +317,48 @@ export class ResumeExporter {
   }
 
   private generateDOCXContent(resumeData: ResumeData): string {
-    // Generate a simplified HTML structure that can be converted to DOCX
-    // This is a basic implementation - for production, consider using a proper DOCX library
+    // Generate ATS-compatible HTML structure for DOCX conversion
     let html = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; }
-          h1 { color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
-          h2 { color: #374151; margin-top: 30px; margin-bottom: 15px; }
-          h3 { color: #4b5563; margin-bottom: 10px; }
-          .contact-info { margin-bottom: 20px; }
-          .section { margin-bottom: 25px; }
-          .experience-item, .education-item { margin-bottom: 20px; }
-          .skills-group { margin-bottom: 15px; }
-          ul { margin: 10px 0; padding-left: 20px; }
-          li { margin-bottom: 5px; }
+          body { 
+            font-family: 'Times New Roman', serif; 
+            line-height: 1.6; 
+            margin: 40px; 
+            font-size: 11pt;
+            color: #000000;
+          }
+          h1 { 
+            color: #000000; 
+            border-bottom: 1px solid #000000; 
+            padding-bottom: 10px; 
+            font-size: 18pt;
+            margin-bottom: 10px;
+          }
+          h2 { 
+            color: #000000; 
+            margin-top: 20px; 
+            margin-bottom: 10px; 
+            font-size: 14pt;
+            font-weight: bold;
+          }
+          h3 { 
+            color: #000000; 
+            margin-bottom: 5px; 
+            font-size: 12pt;
+            font-weight: bold;
+          }
+          .contact-info { margin-bottom: 20px; text-align: center; }
+          .section { margin-bottom: 20px; }
+          .experience-item, .education-item { margin-bottom: 15px; }
+          .skills-group { margin-bottom: 10px; }
+          ul { margin: 5px 0; padding-left: 20px; }
+          li { margin-bottom: 3px; }
+          p { margin: 5px 0; }
+          .date-range { font-style: italic; }
         </style>
       </head>
       <body>
@@ -347,10 +369,8 @@ export class ResumeExporter {
       <h1>${resumeData.personal.name}</h1>
       <div class="contact-info">
         <p><strong>${resumeData.personal.title}</strong></p>
-        <p>Email: ${resumeData.personal.email} | Phone: ${
-      resumeData.personal.phone
-    }</p>
-        <p>Location: ${resumeData.personal.location}</p>
+        <p>${resumeData.personal.email} | ${resumeData.personal.phone}</p>
+        <p>${resumeData.personal.location}</p>
         ${
           resumeData.personal.linkedin
             ? `<p>LinkedIn: ${resumeData.personal.linkedin}</p>`
@@ -373,7 +393,7 @@ export class ResumeExporter {
     if (resumeData.personal.summary) {
       html += `
         <div class="section">
-          <h2>Professional Summary</h2>
+          <h2>PROFESSIONAL SUMMARY</h2>
           <p>${resumeData.personal.summary}</p>
         </div>
       `;
@@ -384,14 +404,13 @@ export class ResumeExporter {
       resumeData.sections.experience.visible &&
       resumeData.sections.experience.items?.length
     ) {
-      html += `<div class="section"><h2>${resumeData.sections.experience.title}</h2>`;
+      html += `<div class="section"><h2>${resumeData.sections.experience.title.toUpperCase()}</h2>`;
       resumeData.sections.experience.items.forEach((item) => {
         html += `
           <div class="experience-item">
-            <h3>${item.position} - ${item.company}</h3>
-            <p><em>${item.startDate} to ${item.endDate} | ${
-          item.location
-        }</em></p>
+            <h3>${item.position}</h3>
+            <p><strong>${item.company}</strong> | ${item.location}</p>
+            <p class="date-range">${item.startDate} - ${item.endDate}</p>
             <ul>
               ${item.description
                 .map((desc: any) => `<li>${desc}</li>`)
@@ -415,15 +434,13 @@ export class ResumeExporter {
       resumeData.sections.education.visible &&
       resumeData.sections.education.items?.length
     ) {
-      html += `<div class="section"><h2>${resumeData.sections.education.title}</h2>`;
+      html += `<div class="section"><h2>${resumeData.sections.education.title.toUpperCase()}</h2>`;
       resumeData.sections.education.items.forEach((item) => {
         html += `
           <div class="education-item">
             <h3>${item.degree} in ${item.field}</h3>
-            <p><em>${item.institution} | ${item.startDate} to ${
-          item.endDate
-        }</em></p>
-            <p>${item.location}</p>
+            <p><strong>${item.institution}</strong> | ${item.location}</p>
+            <p class="date-range">${item.startDate} - ${item.endDate}</p>
             ${item.gpa ? `<p>GPA: ${item.gpa}</p>` : ""}
             ${item.description ? `<p>${item.description}</p>` : ""}
           </div>
@@ -437,12 +454,11 @@ export class ResumeExporter {
       resumeData.sections.skills.visible &&
       resumeData.sections.skills.groups?.length
     ) {
-      html += `<div class="section"><h2>${resumeData.sections.skills.title}</h2>`;
+      html += `<div class="section"><h2>${resumeData.sections.skills.title.toUpperCase()}</h2>`;
       resumeData.sections.skills.groups.forEach((group) => {
         html += `
           <div class="skills-group">
-            <h3>${group.name}</h3>
-            <p>${group.skills.map((skill) => skill.name).join(", ")}</p>
+            <p><strong>${group.name}:</strong> ${group.skills.map((skill) => skill.name).join(", ")}</p>
           </div>
         `;
       });
@@ -454,7 +470,7 @@ export class ResumeExporter {
       resumeData.sections.projects.visible &&
       resumeData.sections.projects.items?.length
     ) {
-      html += `<div class="section"><h2>${resumeData.sections.projects.title}</h2>`;
+      html += `<div class="section"><h2>${resumeData.sections.projects.title.toUpperCase()}</h2>`;
       resumeData.sections.projects.items.forEach((item) => {
         html += `
           <div class="project-item">
@@ -479,9 +495,9 @@ export class ResumeExporter {
       resumeData.sections.certifications.visible &&
       resumeData.sections.certifications.items?.length
     ) {
-      html += `<div class="section"><h2>${resumeData.sections.certifications.title}</h2><ul>`;
+      html += `<div class="section"><h2>${resumeData.sections.certifications.title.toUpperCase()}</h2><ul>`;
       resumeData.sections.certifications.items.forEach((item) => {
-        html += `<li>${item.name} - ${item.organization} (${item.date})</li>`;
+        html += `<li><strong>${item.name}</strong> - ${item.organization} (${item.date})</li>`;
       });
       html += "</ul></div>";
     }
@@ -491,9 +507,9 @@ export class ResumeExporter {
       resumeData.sections.languages.visible &&
       resumeData.sections.languages.items?.length
     ) {
-      html += `<div class="section"><h2>${resumeData.sections.languages.title}</h2><ul>`;
+      html += `<div class="section"><h2>${resumeData.sections.languages.title.toUpperCase()}</h2><ul>`;
       resumeData.sections.languages.items.forEach((item) => {
-        html += `<li>${item.name} - ${item.proficiency}</li>`;
+        html += `<li><strong>${item.name}</strong> - ${item.proficiency}</li>`;
       });
       html += "</ul></div>";
     }
