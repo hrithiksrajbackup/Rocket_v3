@@ -191,9 +191,9 @@ export function Landing() {
       <main className="flex-1">
         <Hero />
         <Features />
-        <Templates />
-        <Testimonials />
-        <FAQ />
+        {/* <Templates /> */}
+        {/* <Testimonials /> */}
+        {/* <FAQ /> */}
       </main>
 
       <Footer />
