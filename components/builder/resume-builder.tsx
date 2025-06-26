@@ -221,7 +221,7 @@ export function ResumeBuilder() {
           const resumeFromDb = await response.json();
           
           // Transform database resume to ResumeData format
-          const transformedData: ResumeData = {
+          const transformedData: any = {
             personal: resumeFromDb.personal || {},
             sections: resumeFromDb.sections || {},
             settings: {
