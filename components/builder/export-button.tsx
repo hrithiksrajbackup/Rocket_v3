@@ -12,16 +12,30 @@ interface ExportButtonProps {
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg';
   className?: string;
+  onExport?: (() => void) | (() => Promise<void>); // Fixed: callback for tracking exports
 }
 
 export function ExportButton({ 
-  resumeData, 
-  elementId, 
+  resumeData,
+  elementId,
   variant = 'default',
   size = 'default',
-  className 
+  className,
+  onExport
 }: ExportButtonProps) {
   const [showExportDialog, setShowExportDialog] = useState(false);
+
+  const handleExportStart = async () => {
+    // Call the onExport callback when export starts
+    if (onExport) {
+      try {
+        await onExport();
+      } catch (error) {
+        console.error('Failed to track export:', error);
+        // Don't prevent export if tracking fails
+      }
+    }
+  };
 
   return (
     <>
@@ -40,6 +54,7 @@ export function ExportButton({
         onOpenChange={setShowExportDialog}
         resumeData={resumeData}
         elementId={elementId}
+        onExportStart={handleExportStart}
       />
     </>
   );
