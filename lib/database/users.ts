@@ -29,9 +29,9 @@ export class UserService {
         lastLoginAt: new Date(),
         loginCount: 1,
         preferences: {
-          theme: 'system',
-          emailNotifications: true,
-          autoSave: true,
+          // theme: 'system',
+          // emailNotifications: true,
+          // autoSave: true,
           ...userData.preferences
         }
       };
@@ -73,7 +73,7 @@ export class UserService {
         { returnDocument: 'after' }
       );
 
-      return result.value;
+      return result;
     } catch (error) {
       console.error('Error updating user:', error);
       throw new Error('Failed to update user');
