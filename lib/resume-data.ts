@@ -226,7 +226,7 @@ export const initialResumeState: ResumeData = {
   },
   meta: {
     created: new Date().toISOString(),
-    lastModified: new Date().toISOString()
+    lastModified: new Date().toISOString(),
   }
 };
 
