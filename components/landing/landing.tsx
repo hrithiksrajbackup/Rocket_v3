@@ -9,7 +9,7 @@ import { Templates } from "@/components/landing/templates";
 import { Testimonials } from "@/components/landing/testimonials";
 import { FAQ } from "@/components/landing/faq";
 import { StackedFooter as Footer } from "@/components/landing/footer";
-import { FileText, Menu, X } from "lucide-react";
+import { FileText, Menu, X, Briefcase } from "lucide-react";
 import { useState } from "react";
 import { useUser, SignInButton, UserButton } from "@clerk/nextjs";
 
@@ -50,6 +50,16 @@ export function Landing() {
                 Templates
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-600 group-hover:w-full transition-all duration-200" />
               </Link>
+              {isSignedIn && (
+                <Link
+                  href="/jobs"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors relative group flex items-center gap-1"
+                >
+                  <Briefcase className="h-4 w-4" />
+                  Jobs
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-600 group-hover:w-full transition-all duration-200" />
+                </Link>
+              )}
               <Link
                 href="#faq"
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors relative group"
@@ -134,6 +144,16 @@ export function Landing() {
                 >
                   Templates
                 </Link>
+                {isSignedIn && (
+                  <Link
+                    href="/jobs"
+                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Briefcase className="h-4 w-4" />
+                    Jobs
+                  </Link>
+                )}
                 <Link
                   href="#faq"
                   className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
