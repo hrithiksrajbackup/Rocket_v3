@@ -32,7 +32,6 @@ import {
   Lock,
   Briefcase,
   Zap,
-  X,
 } from "lucide-react";
 import {
   DropdownMenu,
