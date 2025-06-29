@@ -197,8 +197,7 @@ export function JobSearch() {
     return `${range} ${currency}/${period}`;
   };
 
-  const getRelativeTime = (date: Date,job) => {
-    console.log("job",job)
+  const getRelativeTime = (date: Date) => {
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -361,7 +360,7 @@ export function JobSearch() {
                         </div>
                         <div className="flex items-center gap-1">
                           <Clock className="h-4 w-4" />
-                          {getRelativeTime(job.postedDate,job)}
+                          {getRelativeTime(job.postedDate)}
                         </div>
                       </div>
                     </div>
