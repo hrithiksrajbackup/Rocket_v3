@@ -123,6 +123,245 @@
 //   }
 // }
 
+// export interface PhonePeConfig {
+//   clientId: string;
+//   clientSecret: string;
+//   environment: 'TEST' | 'PRODUCTION';
+//   baseUrl: string;
+//   clientVersion: any;
+//   saltKey: string;
+//   saltIndex: string;
+// }
+
+// export interface PaymentRequest {
+//   merchantTransactionId: string;
+//   merchantUserId: string;
+//   amount: number;
+//   redirectUrl: string;
+//   redirectMode: string;
+//   callbackUrl: string;
+//   mobileNumber?: string;
+//   paymentInstrument: {
+//     type: string;
+//     targetApp?: string;
+//   };
+// }
+
+// export interface PaymentResponse {
+//   success: boolean;
+//   code: string;
+//   message: string;
+//   data?: {
+//     merchantTransactionId: string;
+//     transactionId: string;
+//     instrumentResponse: {
+//       type: string;
+//       redirectInfo: {
+//         url: string;
+//         method: string;
+//       };
+//     };
+//   };
+// }
+
+// export class PhonePeService {
+//   private config: PhonePeConfig;
+
+//   constructor() {
+//     this.config = {
+//       // Updated to use correct PhonePe sandbox credentials
+//       clientId: process.env.PHONEPE_CLIENT_ID || 'TEST-M23YZEOC34CHG_25062',
+//       clientSecret: process.env.PHONEPE_CLIENT_SECRET || 'Y2YxMWUxMGItYmNhNS00YmY2LTkwNTItMTkwOGJkNGEzNGU0',
+//       saltKey: process.env.PHONEPE_SALT_KEY || '099eb0cd-02cf-4e2a-8aca-3e6c6aff0399',
+//       saltIndex: process.env.PHONEPE_SALT_INDEX || '1',
+//       environment: 'TEST',
+//       clientVersion: "1",
+//       baseUrl: 'https://api-preprod.phonepe.com/apis/hermes'
+//     };
+//   }
+
+//   // Generate unique transaction ID instead of static one
+//   generateTransactionId(): string {
+//     const timestamp = Date.now();
+//     const random = Math.floor(Math.random() * 100000);
+//     return `TXN_${this.config.clientId}_${timestamp}_${random}`;
+//   }
+
+//   async initiatePayment(userId: string, amount: number = 100): Promise<PaymentResponse> {
+//     const merchantTransactionId = this.generateTransactionId();
+    
+//     // Ensure amount is in paise (smallest unit)
+//     const amountInPaise = Math.round(amount * 100);
+
+//     const paymentRequest: PaymentRequest = {
+//       merchantId:"M23YZEOC34CHG",
+//       merchantTransactionId,
+//       merchantUserId: userId,
+//       amount: amountInPaise,
+//       redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/callback`,
+//       redirectMode: 'POST',
+//       callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/webhook`,
+//       paymentInstrument: {
+//         type: 'PAY_PAGE'
+//       }
+//     };
+
+//     try {
+//       const base64Payload = Buffer.from(JSON.stringify(paymentRequest)).toString('base64');
+//       const checksum = this.generateChecksum(base64Payload, '/pg/v1/pay');
+
+//       console.log('Payment Request:', {
+//         merchantId: this.config.clientId,
+//         transactionId: merchantTransactionId,
+//         amount: amountInPaise,
+//         checksum: checksum
+//       });
+
+//       const response = await fetch(`${this.config.baseUrl}/pg/v1/pay`, {
+//         method: 'POST',
+//         headers: {
+//           'Content-Type': 'application/json',
+//           'X-VERIFY': checksum,
+//           'X-MERCHANT-ID': this.config.clientId,
+//           'accept': 'application/json'
+//         },
+//         body: JSON.stringify({
+//           request: base64Payload
+//         })
+//       });
+
+//       if (!response.ok) {
+//         const errorText = await response.text();
+//         console.error('PhonePe API Error:', {
+//           status: response.status,
+//           statusText: response.statusText,
+//           error: errorText
+//         });
+//         throw new Error(`HTTP ${response.status}: ${errorText}`);
+//       }
+
+//       const result = await response.json();
+//       console.log('PhonePe Response:', result);
+      
+//       return result;
+//     } catch (error) {
+//       console.error('PhonePe payment initiation error:', error);
+//       throw new Error(`Failed to initiate payment: ${error instanceof Error ? error.message : 'Unknown error'}`);
+//     }
+//   }
+
+//   async verifyPayment(merchantTransactionId: string): Promise<any> {
+//     try {
+//       const endpoint = `/pg/v1/status/${this.config.clientId}/${merchantTransactionId}`;
+//       const checksum = this.generateChecksum('', endpoint);
+
+//       console.log('Verifying payment:', {
+//         merchantId: this.config.clientId,
+//         transactionId: merchantTransactionId,
+//         endpoint: endpoint
+//       });
+
+//       const response = await fetch(
+//         `${this.config.baseUrl}${endpoint}`,
+//         {
+//           method: 'GET',
+//           headers: {
+//             'Content-Type': 'application/json',
+//             'X-VERIFY': checksum,
+//             'X-MERCHANT-ID': this.config.clientId,
+//             'accept': 'application/json'
+//           }
+//         }
+//       );
+
+//       if (!response.ok) {
+//         const errorText = await response.text();
+//         console.error('PhonePe Verification Error:', {
+//           status: response.status,
+//           statusText: response.statusText,
+//           error: errorText
+//         });
+//         throw new Error(`HTTP ${response.status}: ${errorText}`);
+//       }
+
+//       const result = await response.json();
+//       console.log('Verification Response:', result);
+      
+//       return result;
+//     } catch (error) {
+//       console.error('PhonePe payment verification error:', error);
+//       throw new Error(`Failed to verify payment: ${error instanceof Error ? error.message : 'Unknown error'}`);
+//     }
+//   }
+
+//   // Fixed checksum generation according to PhonePe specification
+//   private generateChecksum(payload: string, endpoint?: string): string {
+//     const crypto = require('crypto');
+    
+//     let stringToHash: string;
+    
+//     if (payload && endpoint) {
+//       // For payment initiation: base64Payload + endpoint + saltKey
+//       stringToHash = payload + endpoint + this.config.saltKey;
+//     } else if (endpoint) {
+//       // For status check: endpoint + saltKey
+//       stringToHash = endpoint + this.config.saltKey;
+//     } else {
+//       // Fallback for old format (should not be used)
+//       stringToHash = payload + '/pg/v1/pay' + this.config.saltKey;
+//     }
+    
+//     const hash = crypto.createHash('sha256').update(stringToHash).digest('hex');
+//     return `${hash}###${this.config.saltIndex}`;
+//   }
+
+//   // Helper method to validate configuration
+//   private validateConfig(): boolean {
+//     const requiredFields = ['clientId', 'saltKey', 'saltIndex'];
+//     const missingFields = requiredFields.filter(field => !this.config[field as keyof PhonePeConfig]);
+    
+//     if (missingFields.length > 0) {
+//       console.error('Missing PhonePe configuration:', missingFields);
+//       return false;
+//     }
+    
+//     return true;
+//   }
+
+//   // Method to test if configuration is working
+//   async testConfiguration(): Promise<{ success: boolean; message: string }> {
+//     if (!this.validateConfig()) {
+//       return { success: false, message: 'Invalid configuration' };
+//     }
+
+//     try {
+//       // Test with a minimal payment request
+//       const result = await this.initiatePayment('M23YZEOC34CHG' + Date.now(), 1);
+      
+//       if (result.code === 'KEY_NOT_CONFIGURED') {
+//         return { 
+//           success: false, 
+//           message: 'Merchant key not configured. Please check your credentials.' 
+//         };
+//       }
+      
+//       return { 
+//         success: true, 
+//         message: 'Configuration is valid' 
+//       };
+//     } catch (error) {
+//       return { 
+//         success: false, 
+//         message: error instanceof Error ? error.message : 'Configuration test failed' 
+//       };
+//     }
+//   }
+// }
+
+
+import fetch from 'node-fetch';
+import * as crypto from 'crypto';
+
 export interface PhonePeConfig {
   clientId: string;
   clientSecret: string;
@@ -169,15 +408,20 @@ export class PhonePeService {
 
   constructor() {
     this.config = {
-      // Updated to use correct PhonePe sandbox credentials
-      clientId: process.env.PHONEPE_CLIENT_ID || 'TEST-M23YZEOC34CHG_25062',
-      clientSecret: process.env.PHONEPE_CLIENT_SECRET || 'Y2YxMWUxMGItYmNhNS00YmY2LTkwNTItMTkwOGJkNGEzNGU0',
+      clientId: "TEST-M23YZEOC34CHG_25062",
+      clientSecret: "Y2YxMWUxMGItYmNhNS00YmY2LTkwNTItMTkwOGJkNGEzNGU0",
       saltKey: process.env.PHONEPE_SALT_KEY || '099eb0cd-02cf-4e2a-8aca-3e6c6aff0399',
       saltIndex: process.env.PHONEPE_SALT_INDEX || '1',
       environment: 'TEST',
       clientVersion: "1",
-      baseUrl: 'https://api-preprod.phonepe.com/apis/hermes'
+      baseUrl: this.environmentToUrl('TEST') // Ensure correct base URL depending on environment
     };
+  }
+
+  private environmentToUrl(environment: 'TEST' | 'PRODUCTION'): string {
+    return environment === 'TEST'
+      ? 'https://api-preprod.phonepe.com/apis/hermes'
+      : 'https://api.phonepe.com/apis/hermes';
   }
 
   // Generate unique transaction ID instead of static one
@@ -187,6 +431,31 @@ export class PhonePeService {
     return `TXN_${this.config.clientId}_${timestamp}_${random}`;
   }
 
+  // Request OAuth token from PhonePe API
+  private async getOAuthToken(): Promise<string> {
+
+
+    const authResponse = await fetch('https://api.phonepe.com/apis/identity-manager/v1/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: this.config.clientId,
+        client_secret: this.config.clientSecret,
+        grant_type: 'client_credentials',
+        client_version: this.config.clientVersion
+      })
+    });
+
+    if (!authResponse.ok) {
+      const errorText = await authResponse.text();
+      throw new Error(`OAuth token error: ${errorText}`);
+    }
+
+    const authData = await authResponse.json();
+    return authData.access_token;
+  }
+
+  // Initiate Payment using PhonePe API
   async initiatePayment(userId: string, amount: number = 100): Promise<PaymentResponse> {
     const merchantTransactionId = this.generateTransactionId();
     
@@ -200,12 +469,14 @@ export class PhonePeService {
       redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/callback`,
       redirectMode: 'POST',
       callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/webhook`,
-      paymentInstrument: {
-        type: 'PAY_PAGE'
-      }
+      paymentInstrument: { type: 'PAY_PAGE' }
     };
 
     try {
+      // Fetch the OAuth token
+      const accessToken = await this.getOAuthToken();
+
+      // Base64 encode the payment request payload
       const base64Payload = Buffer.from(JSON.stringify(paymentRequest)).toString('base64');
       const checksum = this.generateChecksum(base64Payload, '/pg/v1/pay');
 
@@ -216,32 +487,28 @@ export class PhonePeService {
         checksum: checksum
       });
 
+      // Make the payment API request
       const response = await fetch(`${this.config.baseUrl}/pg/v1/pay`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-VERIFY': checksum,
           'X-MERCHANT-ID': this.config.clientId,
+          'Authorization': `Bearer ${accessToken}`,
           'accept': 'application/json'
         },
-        body: JSON.stringify({
-          request: base64Payload
-        })
+        body: JSON.stringify({ request: base64Payload })
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('PhonePe API Error:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText
-        });
+        console.error('PhonePe API Error:', { status: response.status, statusText: response.statusText, error: errorText });
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
       const result = await response.json();
       console.log('PhonePe Response:', result);
-      
+
       return result;
     } catch (error) {
       console.error('PhonePe payment initiation error:', error);
@@ -249,6 +516,7 @@ export class PhonePeService {
     }
   }
 
+  // Verify Payment using PhonePe API
   async verifyPayment(merchantTransactionId: string): Promise<any> {
     try {
       const endpoint = `/pg/v1/status/${this.config.clientId}/${merchantTransactionId}`;
@@ -275,17 +543,13 @@ export class PhonePeService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('PhonePe Verification Error:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText
-        });
+        console.error('PhonePe Verification Error:', { status: response.status, statusText: response.statusText, error: errorText });
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
       const result = await response.json();
       console.log('Verification Response:', result);
-      
+
       return result;
     } catch (error) {
       console.error('PhonePe payment verification error:', error);
@@ -293,66 +557,51 @@ export class PhonePeService {
     }
   }
 
-  // Fixed checksum generation according to PhonePe specification
+  // Generate checksum based on PhonePe API spec
   private generateChecksum(payload: string, endpoint?: string): string {
-    const crypto = require('crypto');
-    
     let stringToHash: string;
-    
+
     if (payload && endpoint) {
-      // For payment initiation: base64Payload + endpoint + saltKey
       stringToHash = payload + endpoint + this.config.saltKey;
     } else if (endpoint) {
-      // For status check: endpoint + saltKey
       stringToHash = endpoint + this.config.saltKey;
     } else {
-      // Fallback for old format (should not be used)
       stringToHash = payload + '/pg/v1/pay' + this.config.saltKey;
     }
-    
+
     const hash = crypto.createHash('sha256').update(stringToHash).digest('hex');
     return `${hash}###${this.config.saltIndex}`;
   }
 
-  // Helper method to validate configuration
+  // Validate configuration (ensure all required fields are set)
   private validateConfig(): boolean {
     const requiredFields = ['clientId', 'saltKey', 'saltIndex'];
     const missingFields = requiredFields.filter(field => !this.config[field as keyof PhonePeConfig]);
-    
+
     if (missingFields.length > 0) {
       console.error('Missing PhonePe configuration:', missingFields);
       return false;
     }
-    
+
     return true;
   }
 
-  // Method to test if configuration is working
+  // Test configuration by attempting to initiate a payment
   async testConfiguration(): Promise<{ success: boolean; message: string }> {
     if (!this.validateConfig()) {
       return { success: false, message: 'Invalid configuration' };
     }
 
     try {
-      // Test with a minimal payment request
       const result = await this.initiatePayment('M23YZEOC34CHG' + Date.now(), 1);
-      
+
       if (result.code === 'KEY_NOT_CONFIGURED') {
-        return { 
-          success: false, 
-          message: 'Merchant key not configured. Please check your credentials.' 
-        };
+        return { success: false, message: 'Merchant key not configured. Please check your credentials.' };
       }
-      
-      return { 
-        success: true, 
-        message: 'Configuration is valid' 
-      };
+
+      return { success: true, message: 'Configuration is valid' };
     } catch (error) {
-      return { 
-        success: false, 
-        message: error instanceof Error ? error.message : 'Configuration test failed' 
-      };
+      return { success: false, message: error instanceof Error ? error.message : 'Configuration test failed' };
     }
   }
 }
