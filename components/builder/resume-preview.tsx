@@ -20,6 +20,11 @@ import { cn } from '@/lib/utils';
 import { ProfessionalTemplate } from '@/components/templates/professional-template';
 import { ModernTemplate } from '@/components/templates/modern-template';
 import { MinimalTemplate } from '@/components/templates/minimal-template';
+import { ExecutiveTemplate } from '@/components/templates/executive-template';
+import { CreativeTemplate } from '@/components/templates/creative-template';
+import { TechnicalTemplate } from '@/components/templates/technical-template';
+import { AcademicTemplate } from '@/components/templates/academic-template';
+import { HealthcareTemplate } from '@/components/templates/healthcare-template';
 import { Badge } from '@/components/ui/badge';
 
 interface ResumePreviewProps {
@@ -56,6 +61,16 @@ export function ResumePreview({ resumeData, templateId }: ResumePreviewProps) {
         return <ModernTemplate resumeData={resumeData} />;
       case 'minimal':
         return <MinimalTemplate resumeData={resumeData} />;
+      case 'executive':
+        return <ExecutiveTemplate resumeData={resumeData} />;
+      case 'creative':
+        return <CreativeTemplate resumeData={resumeData} />;
+      case 'technical':
+        return <TechnicalTemplate resumeData={resumeData} />;
+      case 'academic':
+        return <AcademicTemplate resumeData={resumeData} />;
+      case 'healthcare':
+        return <HealthcareTemplate resumeData={resumeData} />;
       case 'professional':
       default:
         return <ProfessionalTemplate resumeData={resumeData} />;
@@ -78,7 +93,7 @@ export function ResumePreview({ resumeData, templateId }: ResumePreviewProps) {
       "flex flex-col flex-1 bg-gradient-to-br from-gray-50 to-gray-100",
       fullscreen ? "fixed inset-0 z-50 bg-white" : ""
     )}>
-      {/* Simplified Toolbar - Removed duplicate export/share buttons */}
+      {/* Simplified Toolbar - Removed Export/Share buttons (they're in header) */}
       <div className="flex items-center justify-between border-b p-4 bg-white/80 backdrop-blur-sm shadow-sm">
         <div className="flex items-center space-x-4">
           {/* Zoom Controls */}

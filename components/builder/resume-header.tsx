@@ -15,12 +15,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ResumeData } from "@/lib/types";
-import { templateConfigs } from "@/lib/template-config";
-import { canUseTemplate, canExportResume } from "@/lib/subscription";
+import { templateConfigs, getTemplateConfig } from "@/lib/template-config";
+import { getUserSubscription, canUseTemplate } from "@/lib/subscription";
 import { ModeToggle } from "@/components/mode-toggle";
 import { ExportButton } from "./export-button";
 import { PremiumBadge } from "@/components/ui/premium-badge";
 import { PremiumUpgradeDialog } from "@/components/dialogs/premium-upgrade-dialog";
+import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,20 +52,31 @@ export function ResumeHeader({
   onSave,
 }: ResumeHeaderProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const [showATS, setShowATS] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState<'template' | 'export'>('export');
+  const [selectedPremiumTemplate, setSelectedPremiumTemplate] = useState<string>('');
 
-  const currentTemplate = templateConfigs.find(t => t.id === templateId) || templateConfigs[0];
+  const subscription = getUserSubscription();
+  const currentTemplate = getTemplateConfig(templateId) || templateConfigs[0];
 
   const switchTemplate = (id: string) => {
-    if (!canUseTemplate(id)) {
-      setUpgradeFeature('template');
-      setShowUpgradeDialog(true);
-      return;
-    }
+    const template = getTemplateConfig(id);
+    if (!template) return;
+
+    // Allow switching to any template (including premium ones)
     router.push(`/builder?template=${id}`);
+    
+    // Show notification for premium templates if user is not premium
+    if (template.premium && !subscription.isPremium) {
+      toast({
+        title: "Premium Template Selected",
+        description: `You're now using the ${template.name} template. Upgrade to Pro to export this template.`,
+        variant: "default",
+      });
+    }
   };
 
   const handleShare = async () => {
@@ -75,15 +87,10 @@ export function ResumeHeader({
       } catch {}
     } else {
       await navigator.clipboard.writeText(shareData.url);
-      alert("Link copied");
-    }
-  };
-
-  const handleExportClick = () => {
-    if (!canExportResume()) {
-      setUpgradeFeature('export');
-      setShowUpgradeDialog(true);
-      return;
+      toast({
+        title: "Link copied",
+        description: "Resume link copied to clipboard",
+      });
     }
   };
 
@@ -95,6 +102,14 @@ export function ResumeHeader({
     acc[template.category].push(template);
     return acc;
   }, {} as Record<string, typeof templateConfigs>);
+
+  const categoryLabels = {
+    professional: 'Professional',
+    modern: 'Modern',
+    creative: 'Creative', 
+    simple: 'Simple',
+    specialized: 'Specialized'
+  };
 
   return (
     <>
@@ -116,7 +131,7 @@ export function ResumeHeader({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex items-center gap-1 min-w-[140px] justify-between"
+                  className="flex items-center gap-1 min-w-[160px] justify-between"
                 >
                   <div className="flex items-center gap-2">
                     <span className="truncate">{currentTemplate.name}</span>
@@ -125,29 +140,61 @@ export function ResumeHeader({
                   <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-80 max-h-96 overflow-y-auto">
-                {Object.entries(groupedTemplates).map(([category, categoryTemplates]) => (
-                  <div key={category}>
-                    <DropdownMenuLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      {category} Templates
-                    </DropdownMenuLabel>
-                    {categoryTemplates.map((template) => {
-                      const canUse = canUseTemplate(template.id);
-                      return (
+              <DropdownMenuContent align="start" className="w-96 max-h-[500px] overflow-y-auto">
+                {/* Free Templates Section */}
+                <DropdownMenuLabel className="px-2 py-1.5 text-xs font-semibold text-green-600 uppercase tracking-wider">
+                  Free Templates
+                </DropdownMenuLabel>
+                {templateConfigs.filter(t => !t.premium).map((template) => (
+                  <DropdownMenuItem
+                    key={template.id}
+                    onSelect={() => switchTemplate(template.id)}
+                    className="flex flex-col items-start gap-1 p-3 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <span className="font-medium">{template.name}</span>
+                      {template.popular && (
+                        <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
+                          Popular
+                        </span>
+                      )}
+                      {template.id === templateId && (
+                        <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded-full ml-auto">
+                          Current
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {template.description}
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+
+                <DropdownMenuSeparator />
+
+                {/* Premium Templates Section */}
+                <DropdownMenuLabel className="px-2 py-1.5 text-xs font-semibold text-orange-600 uppercase tracking-wider flex items-center gap-1">
+                  Premium Templates
+                  <PremiumBadge size="sm" />
+                </DropdownMenuLabel>
+                {Object.entries(groupedTemplates).map(([category, categoryTemplates]) => {
+                  const premiumTemplatesInCategory = categoryTemplates.filter(t => t.premium);
+                  if (premiumTemplatesInCategory.length === 0) return null;
+
+                  return (
+                    <div key={category}>
+                      <DropdownMenuLabel className="px-4 py-1 text-xs text-muted-foreground">
+                        {categoryLabels[category as keyof typeof categoryLabels]}
+                      </DropdownMenuLabel>
+                      {premiumTemplatesInCategory.map((template) => (
                         <DropdownMenuItem
                           key={template.id}
                           onSelect={() => switchTemplate(template.id)}
-                          className="flex flex-col items-start gap-1 p-3"
-                          disabled={!canUse}
+                          className="flex flex-col items-start gap-1 p-3 cursor-pointer"
                         >
                           <div className="flex items-center gap-2 w-full">
                             <span className="font-medium">{template.name}</span>
-                            {template.premium && <PremiumBadge size="sm" />}
-                            {template.popular && (
-                              <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
-                                Popular
-                              </span>
-                            )}
+                            <PremiumBadge size="sm" />
                             {template.id === templateId && (
                               <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded-full ml-auto">
                                 Current
@@ -157,17 +204,39 @@ export function ResumeHeader({
                           <span className="text-xs text-muted-foreground">
                             {template.description}
                           </span>
-                          {!canUse && (
+                          {!subscription.isPremium && (
                             <span className="text-xs text-orange-600 font-medium">
-                              Premium template - Upgrade to unlock
+                              Can preview • Upgrade to export
                             </span>
                           )}
                         </DropdownMenuItem>
-                      );
-                    })}
+                      ))}
+                    </div>
+                  );
+                })}
+                
+                {!subscription.isPremium && (
+                  <>
                     <DropdownMenuSeparator />
-                  </div>
-                ))}
+                    <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 m-1 rounded-md">
+                      <div className="text-sm font-medium mb-1">Unlock All Templates</div>
+                      <div className="text-xs text-muted-foreground mb-2">
+                        Get access to all premium templates and export functionality
+                      </div>
+                      <Button 
+                        size="sm" 
+                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                        onClick={() => {
+                          setUpgradeFeature('template');
+                          setShowUpgradeDialog(true);
+                        }}
+                      >
+                        <PremiumBadge size="sm" className="mr-2" />
+                        Upgrade to Pro
+                      </Button>
+                    </div>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -204,26 +273,14 @@ export function ResumeHeader({
               <Save className="h-4 w-4" /> Save
             </Button>
 
-            {/* Export Button - with premium check */}
-            {canExportResume() ? (
-              <ExportButton
-                resumeData={resumeData}
-                elementId="resume-preview-content"
-                variant="outline"
-                size="sm"
-              />
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportClick}
-                className="gap-1"
-              >
-                <Download className="h-4 w-4" />
-                Export
-                <PremiumBadge size="sm" className="ml-1" />
-              </Button>
-            )}
+            {/* Export Button - with premium check for premium templates */}
+            <ExportButton
+              resumeData={resumeData}
+              elementId="resume-preview-content"
+              variant="outline"
+              size="sm"
+              templateId={templateId}
+            />
 
             {/* Share */}
             <Button
@@ -269,7 +326,7 @@ export function ResumeHeader({
         open={showUpgradeDialog}
         onOpenChange={setShowUpgradeDialog}
         feature={upgradeFeature}
-        templateName={upgradeFeature === 'template' ? currentTemplate.name : undefined}
+        templateName={selectedPremiumTemplate}
       />
     </>
   );

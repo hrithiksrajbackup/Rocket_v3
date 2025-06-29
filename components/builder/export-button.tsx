@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { ExportDialog } from './export-dialog';
 import { PremiumUpgradeDialog } from '@/components/dialogs/premium-upgrade-dialog';
 import { ResumeData } from '@/lib/types';
-import { canExportResume, getExportLimitMessage } from '@/lib/subscription';
+import { getUserSubscription, getExportLimitMessage } from '@/lib/subscription';
+import { getTemplateConfig } from '@/lib/template-config';
 import { Download } from 'lucide-react';
 import { PremiumBadge } from '@/components/ui/premium-badge';
 import { useToast } from '@/hooks/use-toast';
@@ -13,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 interface ExportButtonProps {
   resumeData: ResumeData;
   elementId: string;
+  templateId: string;
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg';
   className?: string;
@@ -21,6 +23,7 @@ interface ExportButtonProps {
 export function ExportButton({ 
   resumeData, 
   elementId, 
+  templateId,
   variant = 'default',
   size = 'default',
   className 
@@ -29,11 +32,19 @@ export function ExportButton({
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const { toast } = useToast();
 
+  const subscription = getUserSubscription();
+  const template = getTemplateConfig(templateId);
+  
+  // Check if user can export this template
+  const canExport = subscription.isPremium || !template?.premium;
+
   const handleExportClick = () => {
-    if (!canExportResume()) {
+    if (!canExport) {
       toast({
         title: "Premium Feature",
-        description: getExportLimitMessage(),
+        description: template?.premium 
+          ? `Export for ${template.name} template requires Premium subscription.`
+          : getExportLimitMessage(),
         variant: "destructive",
       });
       setShowUpgradeDialog(true);
@@ -52,10 +63,10 @@ export function ExportButton({
       >
         <Download className="h-4 w-4 mr-2" />
         Export
-        {!canExportResume() && <PremiumBadge size="sm" className="ml-2" />}
+        {!canExport && <PremiumBadge size="sm" className="ml-2" />}
       </Button>
 
-      {canExportResume() && (
+      {canExport && (
         <ExportDialog
           open={showExportDialog}
           onOpenChange={setShowExportDialog}
@@ -68,6 +79,7 @@ export function ExportButton({
         open={showUpgradeDialog}
         onOpenChange={setShowUpgradeDialog}
         feature="export"
+        templateName={template?.name}
       />
     </>
   );

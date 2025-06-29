@@ -3,13 +3,14 @@ export interface TemplateConfig {
   name: string;
   description: string;
   previewImage: string;
-  category: 'professional' | 'modern' | 'creative' | 'simple';
+  category: 'professional' | 'modern' | 'creative' | 'simple' | 'specialized';
   popular?: boolean;
   premium: boolean;
   features: string[];
 }
 
 export const templateConfigs: TemplateConfig[] = [
+  // FREE TEMPLATES (3 templates)
   {
     id: "professional",
     name: "Professional",
@@ -40,10 +41,12 @@ export const templateConfigs: TemplateConfig[] = [
     premium: false,
     features: ["Minimal design", "Easy to read", "Simple layout"]
   },
+
+  // PREMIUM TEMPLATES
   {
     id: "executive",
     name: "Executive",
-    description: "Sophisticated design for senior positions",
+    description: "Sophisticated design for senior positions and C-level executives",
     previewImage: "https://images.pexels.com/photos/8867274/pexels-photo-8867274.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
     category: "professional",
     popular: false,
@@ -53,7 +56,7 @@ export const templateConfigs: TemplateConfig[] = [
   {
     id: "creative",
     name: "Creative",
-    description: "Bold design for creative industries",
+    description: "Bold design for creative industries and artistic professionals",
     previewImage: "https://images.pexels.com/photos/8867279/pexels-photo-8867279.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
     category: "creative",
     popular: false,
@@ -65,7 +68,7 @@ export const templateConfigs: TemplateConfig[] = [
     name: "Technical",
     description: "Optimized for technical roles with skills emphasis",
     previewImage: "https://images.pexels.com/photos/8867270/pexels-photo-8867270.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
-    category: "professional",
+    category: "specialized",
     popular: false,
     premium: true,
     features: ["Skills focused", "Technical layout", "Data visualization"]
@@ -75,20 +78,20 @@ export const templateConfigs: TemplateConfig[] = [
     name: "Academic",
     description: "Designed for academic and research positions",
     previewImage: "https://images.pexels.com/photos/8867432/pexels-photo-8867432.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
-    category: "professional",
+    category: "specialized",
     popular: false,
     premium: true,
     features: ["Academic format", "Research focused", "Publication ready"]
   },
   {
-    id: "compact",
-    name: "Compact",
-    description: "Condensed format for fitting more content",
+    id: "healthcare",
+    name: "Healthcare",
+    description: "Specialized template for healthcare professionals",
     previewImage: "https://images.pexels.com/photos/8867265/pexels-photo-8867265.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
-    category: "simple",
+    category: "specialized",
     popular: false,
     premium: true,
-    features: ["Space efficient", "Compact layout", "More content"]
+    features: ["Healthcare focused", "Professional layout", "Industry specific"]
   }
 ];
 
@@ -102,4 +105,11 @@ export function getTemplateConfig(id: string): TemplateConfig | undefined {
 export function isTemplatePremium(templateId: string): boolean {
   const template = getTemplateConfig(templateId);
   return template?.premium || false;
+}
+
+export function canUseTemplate(templateId: string, isPremium: boolean = false): boolean {
+  const template = getTemplateConfig(templateId);
+  if (!template) return false;
+  if (!template.premium) return true;
+  return isPremium;
 }

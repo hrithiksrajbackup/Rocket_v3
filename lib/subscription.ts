@@ -25,6 +25,16 @@ export function canUseTemplate(templateId: string): boolean {
   return subscription.isPremium;
 }
 
+export function canExportTemplate(templateId: string): boolean {
+  const subscription = getUserSubscription();
+  const template = getTemplateConfig(templateId);
+  
+  if (!template) return false;
+  if (!template.premium) return true;
+  
+  return subscription.isPremium;
+}
+
 export function canExportResume(): boolean {
   const subscription = getUserSubscription();
   return subscription.isPremium;
