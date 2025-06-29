@@ -3,8 +3,11 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ExportDialog } from './export-dialog';
+import { PremiumUpgradeDialog } from '@/components/dialogs/premium-upgrade-dialog';
 import { ResumeData } from '@/lib/types';
+import { canExportResume } from '@/lib/subscription';
 import { Download } from 'lucide-react';
+import { PremiumBadge } from '@/components/ui/premium-badge';
 
 interface ExportButtonProps {
   resumeData: ResumeData;
@@ -22,24 +25,42 @@ export function ExportButton({
   className 
 }: ExportButtonProps) {
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+
+  const handleExportClick = () => {
+    if (!canExportResume()) {
+      setShowUpgradeDialog(true);
+      return;
+    }
+    setShowExportDialog(true);
+  };
 
   return (
     <>
       <Button
         variant={variant}
         size={size}
-        onClick={() => setShowExportDialog(true)}
+        onClick={handleExportClick}
         className={className}
       >
         <Download className="h-4 w-4 mr-2" />
         Export
+        {!canExportResume() && <PremiumBadge size="sm" className="ml-2" />}
       </Button>
 
-      <ExportDialog
-        open={showExportDialog}
-        onOpenChange={setShowExportDialog}
-        resumeData={resumeData}
-        elementId={elementId}
+      {canExportResume() && (
+        <ExportDialog
+          open={showExportDialog}
+          onOpenChange={setShowExportDialog}
+          resumeData={resumeData}
+          elementId={elementId}
+        />
+      )}
+
+      <PremiumUpgradeDialog
+        open={showUpgradeDialog}
+        onOpenChange={setShowUpgradeDialog}
+        feature="export"
       />
     </>
   );

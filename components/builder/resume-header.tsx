@@ -15,9 +15,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ResumeData } from "@/lib/types";
-import { templates } from "@/lib/resume-data";
+import { templateConfigs } from "@/lib/template-config";
+import { canUseTemplate, canExportResume } from "@/lib/subscription";
 import { ModeToggle } from "@/components/mode-toggle";
 import { ExportButton } from "./export-button";
+import { PremiumBadge } from "@/components/ui/premium-badge";
+import { PremiumUpgradeDialog } from "@/components/dialogs/premium-upgrade-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,10 +52,17 @@ export function ResumeHeader({
   const router = useRouter();
   const [showATS, setShowATS] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState<'template' | 'export'>('export');
 
-  const currentTemplate = templates.find(t => t.id === templateId) || templates[0];
+  const currentTemplate = templateConfigs.find(t => t.id === templateId) || templateConfigs[0];
 
   const switchTemplate = (id: string) => {
+    if (!canUseTemplate(id)) {
+      setUpgradeFeature('template');
+      setShowUpgradeDialog(true);
+      return;
+    }
     router.push(`/builder?template=${id}`);
   };
 
@@ -68,14 +78,23 @@ export function ResumeHeader({
     }
   };
 
+  const handleExportClick = () => {
+    if (!canExportResume()) {
+      setUpgradeFeature('export');
+      setShowUpgradeDialog(true);
+      return;
+    }
+    // Export functionality would be handled by ExportButton
+  };
+
   // Group templates by category for better organization
-  const groupedTemplates = templates.reduce((acc, template) => {
+  const groupedTemplates = templateConfigs.reduce((acc, template) => {
     if (!acc[template.category]) {
       acc[template.category] = [];
     }
     acc[template.category].push(template);
     return acc;
-  }, {} as Record<string, typeof templates>);
+  }, {} as Record<string, typeof templateConfigs>);
 
   return (
     <>
@@ -99,7 +118,10 @@ export function ResumeHeader({
                   size="sm"
                   className="flex items-center gap-1 min-w-[140px] justify-between"
                 >
-                  <span className="truncate">{currentTemplate.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="truncate">{currentTemplate.name}</span>
+                    {currentTemplate.premium && <PremiumBadge size="sm" />}
+                  </div>
                   <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
@@ -109,30 +131,35 @@ export function ResumeHeader({
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       {category}
                     </div>
-                    {categoryTemplates.map((template) => (
-                      <DropdownMenuItem
-                        key={template.id}
-                        onSelect={() => switchTemplate(template.id)}
-                        className="flex flex-col items-start gap-1 p-3"
-                      >
-                        <div className="flex items-center gap-2 w-full">
-                          <span className="font-medium">{template.name}</span>
-                          {template.popular && (
-                            <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
-                              Popular
-                            </span>
-                          )}
-                          {template.id === templateId && (
-                            <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded-full ml-auto">
-                              Current
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {template.description}
-                        </span>
-                      </DropdownMenuItem>
-                    ))}
+                    {categoryTemplates.map((template) => {
+                      const canUse = canUseTemplate(template.id);
+                      return (
+                        <DropdownMenuItem
+                          key={template.id}
+                          onSelect={() => switchTemplate(template.id)}
+                          className="flex flex-col items-start gap-1 p-3"
+                          disabled={!canUse}
+                        >
+                          <div className="flex items-center gap-2 w-full">
+                            <span className="font-medium">{template.name}</span>
+                            {template.premium && <PremiumBadge size="sm" />}
+                            {template.popular && (
+                              <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
+                                Popular
+                              </span>
+                            )}
+                            {template.id === templateId && (
+                              <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded-full ml-auto">
+                                Current
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {template.description}
+                          </span>
+                        </DropdownMenuItem>
+                      );
+                    })}
                     <DropdownMenuSeparator />
                   </div>
                 ))}
@@ -172,13 +199,26 @@ export function ResumeHeader({
               <Save className="h-4 w-4" /> Save
             </Button>
 
-            {/* Export Button */}
-            <ExportButton
-              resumeData={resumeData}
-              elementId="resume-preview-content"
-              variant="outline"
-              size="sm"
-            />
+            {/* Export Button - with premium check */}
+            {canExportResume() ? (
+              <ExportButton
+                resumeData={resumeData}
+                elementId="resume-preview-content"
+                variant="outline"
+                size="sm"
+              />
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportClick}
+                className="gap-1"
+              >
+                <Download className="h-4 w-4" />
+                Export
+                <PremiumBadge size="sm" className="ml-1" />
+              </Button>
+            )}
 
             {/* Share */}
             <Button
@@ -219,6 +259,13 @@ export function ResumeHeader({
           </div>
         </div>
       </header>
+
+      <PremiumUpgradeDialog
+        open={showUpgradeDialog}
+        onOpenChange={setShowUpgradeDialog}
+        feature={upgradeFeature}
+        templateName={upgradeFeature === 'template' ? currentTemplate.name : undefined}
+      />
     </>
   );
 }
