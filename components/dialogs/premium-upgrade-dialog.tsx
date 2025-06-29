@@ -11,12 +11,12 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Crown, Check, X, Zap, Star } from 'lucide-react';
+import { Crown, Check, X, Zap, Star, Brain, Target, FileText, TrendingUp } from 'lucide-react';
 
 interface PremiumUpgradeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  feature?: 'template' | 'export' | 'general';
+  feature?: 'template' | 'export' | 'analyzer' | 'general';
   templateName?: string;
 }
 
@@ -33,22 +33,31 @@ export function PremiumUpgradeDialog({
       case 'template':
         return {
           title: `Unlock ${templateName} Template`,
-          description: `The ${templateName} template is part of our premium collection. Upgrade to Pro to access all premium templates and advanced features.`
+          description: `The ${templateName} template is part of our premium collection. Upgrade to Pro to access all premium templates and advanced features.`,
+          icon: <FileText className="h-8 w-8 text-white" />
         };
       case 'export':
         return {
           title: 'Export Your Resume',
-          description: 'Resume export is a premium feature. Upgrade to Pro to download your resume in PDF, DOCX, and PNG formats.'
+          description: 'Resume export is a premium feature. Upgrade to Pro to download your resume in PDF, DOCX, and PNG formats.',
+          icon: <Target className="h-8 w-8 text-white" />
+        };
+      case 'analyzer':
+        return {
+          title: 'AI Resume Analyzer',
+          description: 'Get comprehensive AI-powered analysis including spelling checks, ATS optimization, keyword suggestions, and professional recommendations.',
+          icon: <Brain className="h-8 w-8 text-white" />
         };
       default:
         return {
           title: 'Upgrade to Premium',
-          description: 'Unlock all premium features and take your resume to the next level.'
+          description: 'Unlock all premium features and take your resume to the next level.',
+          icon: <Crown className="h-8 w-8 text-white" />
         };
     }
   };
 
-  const { title, description } = getFeatureMessage();
+  const { title, description, icon } = getFeatureMessage();
 
   const plans = [
     {
@@ -61,7 +70,10 @@ export function PremiumUpgradeDialog({
         'All premium templates',
         'Unlimited exports (PDF, DOCX, PNG)',
         'AI content suggestions',
+        'AI Resume Analyzer',
         'ATS optimization',
+        'Spelling & grammar check',
+        'Keyword optimization',
         'Priority support',
         'Version history',
         'Custom branding removal'
@@ -79,6 +91,7 @@ export function PremiumUpgradeDialog({
         'Team collaboration (5 members)',
         'Advanced analytics',
         'Custom templates',
+        'Bulk resume analysis',
         'API access',
         'White-label solution',
         'Dedicated support'
@@ -94,18 +107,49 @@ export function PremiumUpgradeDialog({
     onOpenChange(false);
   };
 
+  const getFeatureHighlights = () => {
+    switch (feature) {
+      case 'analyzer':
+        return [
+          { icon: <Brain className="h-5 w-5" />, title: 'AI Analysis', desc: 'Comprehensive resume review' },
+          { icon: <FileText className="h-5 w-5" />, title: 'Spelling Check', desc: 'Grammar and spelling errors' },
+          { icon: <Target className="h-5 w-5" />, title: 'ATS Optimization', desc: 'Improve compatibility' },
+          { icon: <TrendingUp className="h-5 w-5" />, title: 'Impact Score', desc: 'Overall resume rating' }
+        ];
+      default:
+        return [];
+    }
+  };
+
+  const featureHighlights = getFeatureHighlights();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader className="text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-yellow-400 to-orange-500">
-            <Crown className="h-8 w-8 text-white" />
+            {icon}
           </div>
           <DialogTitle className="text-2xl font-bold">{title}</DialogTitle>
           <DialogDescription className="text-base">
             {description}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Feature Highlights for AI Analyzer */}
+        {featureHighlights.length > 0 && (
+          <div className="grid grid-cols-2 gap-4 my-6">
+            {featureHighlights.map((highlight, index) => (
+              <div key={index} className="flex items-center gap-3 p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
+                <div className="text-purple-600">{highlight.icon}</div>
+                <div>
+                  <div className="font-medium text-sm">{highlight.title}</div>
+                  <div className="text-xs text-gray-600">{highlight.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="grid gap-4 py-6">
           {plans.map((plan) => (

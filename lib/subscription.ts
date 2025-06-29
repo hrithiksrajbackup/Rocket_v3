@@ -40,6 +40,11 @@ export function canExportResume(): boolean {
   return subscription.isPremium;
 }
 
+export function canUseAIAnalyzer(): boolean {
+  const subscription = getUserSubscription();
+  return subscription.isPremium;
+}
+
 export function getExportLimitMessage(): string {
   const subscription = getUserSubscription();
   
@@ -52,6 +57,10 @@ export function getExportLimitMessage(): string {
 
 export function getTemplateLimitMessage(templateName: string): string {
   return `The ${templateName} template is part of our premium collection. Upgrade to Pro to access all premium templates and advanced features.`;
+}
+
+export function getAIAnalyzerLimitMessage(): string {
+  return "AI Resume Analyzer is a premium feature. Upgrade to Pro to get comprehensive analysis including spelling checks, ATS optimization, and keyword suggestions.";
 }
 
 import { getTemplateConfig } from './template-config';

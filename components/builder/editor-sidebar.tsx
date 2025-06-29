@@ -12,6 +12,7 @@ import { LanguagesSection } from "./sections/languages-section";
 import { InterestsSection } from "./sections/interests-section";
 import { ReferencesSection } from "./sections/references-section";
 import { AiSuggestions } from "./ai-suggestions";
+import { AIResumeAnalyzer } from "./ai-resume-analyzer";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  Brain,
 } from "lucide-react";
 
 interface EditorSidebarProps {
@@ -107,6 +109,7 @@ export function EditorSidebar({
   onToggleCollapse,
 }: EditorSidebarProps) {
   const [showAISuggestions, setShowAISuggestions] = useState(false);
+  const [showAIAnalyzer, setShowAIAnalyzer] = useState(false);
 
   if (collapsed) {
     return (
@@ -200,15 +203,26 @@ export function EditorSidebar({
               <p className="text-xs text-gray-500">Build your perfect resume</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowAISuggestions(!showAISuggestions)}
-            className="gap-1"
-          >
-            <Sparkles className="w-4 h-4" />
-            AI Help
-          </Button>
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAIAnalyzer(!showAIAnalyzer)}
+              className="gap-1 text-xs"
+            >
+              <Brain className="w-3 h-3" />
+              AI Analyzer
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAISuggestions(!showAISuggestions)}
+              className="gap-1 text-xs"
+            >
+              <Sparkles className="w-3 h-3" />
+              AI Help
+            </Button>
+          </div>
         </div>
 
         {/* Progress */}
@@ -226,6 +240,16 @@ export function EditorSidebar({
           </div>
         </div>
       </div>
+
+      {/* AI Analyzer Panel */}
+      {showAIAnalyzer && (
+        <div className="border-b border-gray-200 p-4 bg-gradient-to-r from-purple-50 to-pink-50">
+          <AIResumeAnalyzer
+            resumeData={resumeData}
+            onClose={() => setShowAIAnalyzer(false)}
+          />
+        </div>
+      )}
 
       {/* AI Suggestions Panel */}
       {showAISuggestions && (
