@@ -1,155 +1,314 @@
 "use client";
 
-import { useUser } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { SubscriptionModal } from "@/components/payment/subscription-modal";
-import { JobSearchModal } from "@/components/jobs/job-search-modal";
-import { 
-  Plus, 
-  FileText, 
-  Download, 
-  Eye, 
-  Edit, 
-  Copy, 
-  Trash2, 
-  Search,
-  Crown,
-  TrendingUp,
-  Clock,
-  MoreVertical,
+import { useState, useEffect } from 'react';
+import { useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from '@/components/ui/use-toast';
+import {
+  FileText,
+  Download,
+  Target,
+  Award,
+  Plus,
   Briefcase,
+  Lightbulb,
+  TrendingUp,
+  Calendar,
+  Share2,
+  Copy,
+  Edit,
+  Trash2,
+  Eye,
+  Crown,
   Sparkles,
-  BarChart3,
-  Users,
+  RefreshCw,
+  Activity,
+  Clock,
+  User,
+  Settings,
+  LogOut,
+  Bell,
+  HelpCircle,
   Zap,
   Star,
-  Calendar
-} from "lucide-react";
+  CheckCircle,
+  AlertTriangle,
+  Info,
+  Loader2,
+  CreditCard,
+  Shield,
+  Infinity as InfinityIcon,
+  Brain,
+  Palette,
+  ExternalLink,
+  Lock
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useToast } from "@/hooks/use-toast";
-import Link from "next/link";
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { UserButton, SignOutButton } from '@clerk/nextjs';
 
-interface Resume {
+interface ResumeDocument {
   _id: string;
   title: string;
   personal: {
     name: string;
     title: string;
   };
+  version: number;
   updatedAt: string;
   createdAt: string;
   exportCount: number;
-  atsScore?: number;
-  templateId: string;
-  version: number;
+}
+
+interface UserActivity {
+  _id: string;
+  action: string;
+  details?: any;
+  timestamp: string;
 }
 
 interface UserSubscription {
-  status: 'ACTIVE' | 'INACTIVE';
-  subscriptionType: string;
+  _id?: string;
+  userId: string;
+  subscriptionType: 'LIFETIME' | 'MONTHLY' | 'YEARLY';
+  status: 'ACTIVE' | 'INACTIVE' | 'EXPIRED';
+  paymentId: string;
+  activatedAt: Date;
+  expiresAt?: Date;
   features: string[];
-  activatedAt: string;
+}
+
+interface DashboardStats {
+  totalResumes: number;
+  totalDownloads: number;
+  profileScore: number;
+  atsScore: number;
 }
 
 export default function DashboardPage() {
-  const { isLoaded, isSignedIn, user } = useUser();
+  const { user, isLoaded } = useUser();
   const router = useRouter();
-  const { toast } = useToast();
-  
-  const [resumes, setResumes] = useState<Resume[]>([]);
+  const [resumes, setResumes] = useState<ResumeDocument[]>([]);
+  const [activities, setActivities] = useState<UserActivity[]>([]);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalResumes: 0,
+    totalDownloads: 0,
+    profileScore: 100,
+    atsScore: 89
+  });
   const [isLoading, setIsLoading] = useState(true);
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-  const [showJobSearchModal, setShowJobSearchModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [refreshingActivities, setRefreshingActivities] = useState(false);
 
   useEffect(() => {
-    if (isLoaded && !isSignedIn) {
+    if (isLoaded && !user) {
       router.push('/sign-in');
+    } else if (user) {
+      fetchDashboardData();
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [isLoaded, user, router]);
 
-  useEffect(() => {
-    if (isSignedIn && user) {
-      loadDashboardData();
-    }
-  }, [isSignedIn, user]);
-
-  const loadDashboardData = async () => {
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      
-      const [resumesResponse, subscriptionResponse] = await Promise.all([
-        fetch('/api/resumes'),
-        fetch('/api/payments/status')
+      await Promise.all([
+        fetchResumes(),
+        fetchActivities(),
+        fetchSubscription()
       ]);
-
-      if (resumesResponse.ok) {
-        const resumesData = await resumesResponse.json();
-        setResumes(resumesData);
-      }
-
-      if (subscriptionResponse.ok) {
-        const subscriptionData = await subscriptionResponse.json();
-        setSubscription(subscriptionData.subscription);
-      }
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load dashboard data",
-        variant: "destructive"
-      });
+      console.error('Error fetching dashboard data:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleCreateResume = () => {
-    if (!subscription && resumes.length >= 1) {
-      setShowSubscriptionModal(true);
-      return;
+  const fetchResumes = async () => {
+    try {
+      const response = await fetch('/api/resumes');
+      if (response.ok) {
+        const resumeData = await response.json();
+        setResumes(resumeData);
+        
+        // Calculate stats
+        const totalDownloads = resumeData.reduce((sum: number, resume: ResumeDocument) => 
+          sum + (resume.exportCount || 0), 0
+        );
+        
+        setStats(prev => ({
+          ...prev,
+          totalResumes: resumeData.length,
+          totalDownloads
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching resumes:', error);
     }
-    router.push('/builder');
   };
 
-  const handleDuplicateResume = async (resumeId: string, title: string) => {
+  const fetchActivities = async () => {
     try {
-      const response = await fetch(`/api/resumes/${resumeId}/duplicate`, {
+      const response = await fetch('/api/users/activities?limit=10');
+      if (response.ok) {
+        const activityData = await response.json();
+        setActivities(activityData);
+      }
+    } catch (error) {
+      console.error('Error fetching activities:', error);
+    }
+  };
+
+  const fetchSubscription = async () => {
+    try {
+      const response = await fetch('/api/payments/status');
+      if (response.ok) {
+        const data = await response.json();
+        setSubscription(data.subscription);
+      }
+    } catch (error) {
+      console.error('Error fetching subscription:', error);
+    }
+  };
+
+  const refreshActivities = async () => {
+    setRefreshingActivities(true);
+    try {
+      await fetchActivities();
+      toast({
+        title: "Activities Refreshed",
+        description: "Recent activity has been updated.",
+      });
+    } catch (error) {
+      toast({
+        title: "Refresh Failed",
+        description: "Failed to refresh activities.",
+        variant: "destructive",
+      });
+    } finally {
+      setRefreshingActivities(false);
+    }
+  };
+
+  const handleUpgrade = async () => {
+    if (!user) return;
+
+    setIsUpgrading(true);
+    try {
+      const response = await fetch('/api/payments/initiate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ title: `${title} (Copy)` }),
+        body: JSON.stringify({
+          amount: 100, // $1 for lifetime access
+        }),
       });
 
       if (response.ok) {
-        const newResume = await response.json();
-        setResumes(prev => [newResume, ...prev]);
-        toast({
-          title: "Resume Duplicated",
-          description: "Resume has been successfully duplicated.",
-        });
+        const data = await response.json();
+        if (data.success && data.paymentUrl) {
+          window.location.href = data.paymentUrl;
+        } else {
+          throw new Error(data.error || 'Failed to initiate payment');
+        }
       } else {
-        throw new Error('Failed to duplicate resume');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Payment initiation failed');
       }
     } catch (error) {
+      console.error('Upgrade error:', error);
       toast({
-        title: "Error",
-        description: "Failed to duplicate resume",
-        variant: "destructive"
+        title: "Upgrade Failed",
+        description: error instanceof Error ? error.message : "Failed to start upgrade process",
+        variant: "destructive",
       });
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
+
+  const handleCreateResume = () => {
+    const isPremium = subscription?.status === 'ACTIVE';
+    const canCreate = isPremium || resumes.length < 3;
+    
+    if (!canCreate) {
+      toast({
+        title: "Resume Limit Reached",
+        description: "You've reached the limit of 3 free resumes. Upgrade to Premium for unlimited resumes.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    router.push('/builder');
+  };
+
+  const handleEditResume = (resumeId: string) => {
+    router.push(`/builder?resume=${resumeId}`);
+  };
+
+  const handlePreviewResume = (resumeId: string) => {
+    // Open preview in new tab
+    window.open(`/preview?resume=${resumeId}`, '_blank');
+  };
+
+  const handleShareResume = async (resume: ResumeDocument) => {
+    const shareUrl = `${window.location.origin}/preview?resume=${resume._id}`;
+    
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${resume.title} - Resume`,
+          text: `Check out ${resume.personal.name}'s resume`,
+          url: shareUrl
+        });
+      } else {
+        // Fallback to clipboard
+        await navigator.clipboard.writeText(shareUrl);
+        toast({
+          title: "Link Copied",
+          description: "Resume share link has been copied to your clipboard.",
+        });
+      }
+    } catch (error) {
+      // If sharing fails, copy to clipboard
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        toast({
+          title: "Link Copied",
+          description: "Resume share link has been copied to your clipboard.",
+        });
+      } catch (clipboardError) {
+        toast({
+          title: "Share Failed",
+          description: "Unable to share or copy link. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -169,466 +328,691 @@ export default function DashboardPage() {
           title: "Resume Deleted",
           description: "Resume has been successfully deleted.",
         });
+        // Refresh activities to show the deletion
+        fetchActivities();
       } else {
         throw new Error('Failed to delete resume');
       }
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to delete resume",
-        variant: "destructive"
+        title: "Delete Failed",
+        description: "Failed to delete resume. Please try again.",
+        variant: "destructive",
       });
     }
   };
 
-  const filteredResumes = resumes.filter(resume =>
-    resume.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    resume.personal.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const getCompletionScore = (resume: Resume) => {
-    let score = 0;
-    if (resume.personal.name) score += 20;
-    if (resume.personal.title) score += 20;
-    return Math.min(score + 60, 100);
+  const getActivityIcon = (action: string) => {
+    switch (action) {
+      case 'login': return <User className="h-4 w-4 text-blue-500" />;
+      case 'resume_created': return <FileText className="h-4 w-4 text-green-500" />;
+      case 'resume_updated': return <Edit className="h-4 w-4 text-orange-500" />;
+      case 'resume_exported': return <Download className="h-4 w-4 text-purple-500" />;
+      case 'resume_deleted': return <Trash2 className="h-4 w-4 text-red-500" />;
+      case 'subscription_activated': return <Crown className="h-4 w-4 text-amber-500" />;
+      default: return <Activity className="h-4 w-4 text-gray-500" />;
+    }
   };
 
-  const isPremium = subscription?.status === 'ACTIVE';
+  const getActivityMessage = (activity: UserActivity) => {
+    const timeAgo = getRelativeTime(activity.timestamp);
+    
+    switch (activity.action) {
+      case 'login':
+        return `Signed in ${timeAgo}`;
+      case 'resume_created':
+        return `Created resume "${activity.details?.title || 'Untitled'}" ${timeAgo}`;
+      case 'resume_updated':
+        return `Updated resume (v${activity.details?.version || 1}) ${timeAgo}`;
+      case 'resume_exported':
+        return `Exported resume ${timeAgo}`;
+      case 'resume_deleted':
+        return `Deleted resume ${timeAgo}`;
+      case 'subscription_activated':
+        return `Activated Premium subscription ${timeAgo}`;
+      default:
+        return `Activity ${timeAgo}`;
+    }
+  };
 
-  if (!isLoaded) {
+  const getRelativeTime = (timestamp: string) => {
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diffInSeconds = Math.floor((now.getTime() - time.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) return 'just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    return `${Math.floor(diffInSeconds / 604800)}w ago`;
+  };
+
+  const getSmartTips = () => {
+    const isPremium = subscription?.status === 'ACTIVE';
+    const isNewUser = resumes.length === 0;
+    const hasMultipleResumes = resumes.length > 1;
+    
+    const allTips = [
+      {
+        id: 1,
+        category: 'content',
+        title: 'Use Action Verbs',
+        description: 'Start bullet points with strong action verbs like "achieved," "led," or "implemented."',
+        color: 'text-blue-600',
+        bgColor: 'bg-blue-50',
+        icon: <Zap className="h-4 w-4" />,
+        difficulty: 'beginner'
+      },
+      {
+        id: 2,
+        category: 'formatting',
+        title: 'Quantify Results',
+        description: 'Include numbers and percentages to show the impact of your work.',
+        color: 'text-green-600',
+        bgColor: 'bg-green-50',
+        icon: <TrendingUp className="h-4 w-4" />,
+        difficulty: 'beginner'
+      },
+      {
+        id: 3,
+        category: 'ats',
+        title: 'Tailor for ATS',
+        description: 'Use keywords from the job description to pass applicant tracking systems.',
+        color: 'text-purple-600',
+        bgColor: 'bg-purple-50',
+        icon: <Target className="h-4 w-4" />,
+        difficulty: 'intermediate',
+        premium: true
+      },
+      {
+        id: 4,
+        category: 'strategy',
+        title: 'Keep It Concise',
+        description: 'Aim for 1-2 pages maximum. Recruiters spend only 6 seconds scanning resumes.',
+        color: 'text-orange-600',
+        bgColor: 'bg-orange-50',
+        icon: <Clock className="h-4 w-4" />,
+        difficulty: 'beginner'
+      },
+      {
+        id: 5,
+        category: 'content',
+        title: 'Show Career Progression',
+        description: 'Highlight promotions and increasing responsibilities in your work history.',
+        color: 'text-indigo-600',
+        bgColor: 'bg-indigo-50',
+        icon: <TrendingUp className="h-4 w-4" />,
+        difficulty: 'intermediate'
+      },
+      {
+        id: 6,
+        category: 'ats',
+        title: 'Use Standard Headings',
+        description: 'Stick to conventional section names like "Experience" and "Education" for ATS compatibility.',
+        color: 'text-teal-600',
+        bgColor: 'bg-teal-50',
+        icon: <FileText className="h-4 w-4" />,
+        difficulty: 'advanced',
+        premium: true
+      }
+    ];
+
+    // Filter tips based on user status
+    let relevantTips = allTips;
+    
+    if (isNewUser) {
+      relevantTips = allTips.filter(tip => tip.difficulty === 'beginner');
+    } else if (hasMultipleResumes) {
+      relevantTips = allTips.filter(tip => tip.difficulty !== 'beginner');
+    }
+    
+    // Show premium tips only to premium users, or as teasers
+    if (!isPremium) {
+      relevantTips = relevantTips.map(tip => ({
+        ...tip,
+        premium: tip.premium || false
+      }));
+    }
+    
+    return relevantTips.slice(0, 3);
+  };
+
+  if (!isLoaded || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  if (!isSignedIn) {
+  if (!user) {
     return null;
   }
 
+  const isPremium = subscription?.status === 'ACTIVE';
+  const resumeUsage = isPremium ? resumes.length : Math.min(resumes.length, 3);
+  const maxResumes = isPremium ? -1 : 3;
+  const usagePercentage = isPremium ? 0 : (resumes.length / 3) * 100;
+  const canCreateNewResume = isPremium || resumes.length < 3;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-40">
+      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link href="/" className="flex items-center gap-2">
-                <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
                   <FileText className="h-5 w-5 text-white" />
                 </div>
-                <span className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                  Resume Rocket
-                </span>
-              </Link>
+                <h1 className="text-xl font-bold text-gray-900">Resume Rocket</h1>
+              </div>
             </div>
-            
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowJobSearchModal(true)}
-                className="flex items-center gap-2 hover:bg-blue-50 border-blue-200"
-              >
-                <Briefcase className="h-4 w-4" />
-                Find Jobs
+
+            <div className="flex items-center space-x-4">
+              {/* Notifications */}
+              <Button variant="ghost" size="icon" className="relative">
+                <Bell className="h-5 w-5" />
+                <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
+                  1
+                </span>
               </Button>
-              
-              {!isPremium && (
-                <Button
-                  onClick={() => setShowSubscriptionModal(true)}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-                >
-                  <Crown className="h-4 w-4 mr-2" />
-                  Upgrade to Pro
-                </Button>
-              )}
+
+              {/* Help */}
+              <Button variant="ghost" size="icon">
+                <HelpCircle className="h-5 w-5" />
+              </Button>
+
+              {/* User Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center space-x-2">
+                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                      <span className="text-white text-sm font-medium">
+                        {user.firstName?.charAt(0) || user.emailAddresses[0]?.emailAddress.charAt(0)}
+                      </span>
+                    </div>
+                    <div className="text-left">
+                      <div className="text-sm font-medium">
+                        {user.firstName} {user.lastName}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {user.emailAddresses[0]?.emailAddress}
+                      </div>
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
+                  </DropdownMenuItem>
+                  {!isPremium && (
+                    <DropdownMenuItem onClick={handleUpgrade}>
+                      <Crown className="mr-2 h-4 w-4" />
+                      Upgrade to Pro
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <SignOutButton>
+                    <DropdownMenuItem>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Sign out
+                    </DropdownMenuItem>
+                  </SignOutButton>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-8">
-          {/* Hero Section */}
-          <div className="text-center space-y-4">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
-                <span className="text-white font-bold text-lg">
-                  {user?.firstName?.charAt(0) || user?.emailAddresses[0]?.emailAddress.charAt(0) || 'U'}
-                </span>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Subscription Status Alert */}
+        {!isPremium && resumes.length >= 2 && (
+          <Alert className="mb-6 border-red-200 bg-red-50">
+            <AlertTriangle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <strong>Resume Limit Reached</strong>
+                  <p className="mt-1">You've used {resumes.length} of 3 free resumes. Upgrade to Premium for unlimited resumes.</p>
+                  <div className="mt-2">
+                    <div className="text-xs mb-1">Usage</div>
+                    <Progress value={usagePercentage} className="h-2 bg-red-100" />
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleUpgrade}
+                  disabled={isUpgrading}
+                  className="bg-red-600 hover:bg-red-700 text-white ml-4"
+                >
+                  {isUpgrading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Crown className="mr-2 h-4 w-4" />
+                      Upgrade to Premium
+                    </>
+                  )}
+                </Button>
               </div>
-            </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-900 to-purple-900 bg-clip-text text-transparent">
-              Welcome back, {user?.firstName || 'there'}!
-            </h1>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Ready to take your career to the next level? Let's build something amazing together.
-            </p>
-          </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
-          {/* Quick Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-all duration-200">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-blue-700">Total Resumes</p>
-                    <p className="text-3xl font-bold text-blue-900">{resumes.length}</p>
-                  </div>
-                  <div className="p-3 bg-blue-500 rounded-xl">
-                    <FileText className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-all duration-200">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-green-700">Downloads</p>
-                    <p className="text-3xl font-bold text-green-900">
-                      {resumes.reduce((sum, resume) => sum + (resume.exportCount || 0), 0)}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-green-500 rounded-xl">
-                    <Download className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-all duration-200">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-purple-700">Avg. ATS Score</p>
-                    <p className="text-3xl font-bold text-purple-900">
-                      {resumes.length > 0 
-                        ? Math.round(resumes.reduce((sum, resume) => sum + (resume.atsScore || 75), 0) / resumes.length)
-                        : 0
-                      }%
-                    </p>
-                  </div>
-                  <div className="p-3 bg-purple-500 rounded-xl">
-                    <TrendingUp className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 hover:shadow-lg transition-all duration-200">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-orange-700">Last Updated</p>
-                    <p className="text-lg font-bold text-orange-900">
-                      {resumes.length > 0 
-                        ? new Date(Math.max(...resumes.map(r => new Date(r.updatedAt).getTime()))).toLocaleDateString()
-                        : 'Never'
-                      }
-                    </p>
-                  </div>
-                  <div className="p-3 bg-orange-500 rounded-xl">
-                    <Clock className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Plan Status - Only show if not premium */}
-          {!isPremium && (
-            <Card className="border-2 border-dashed border-blue-300 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50">
-              <CardContent className="p-8">
-                <div className="text-center space-y-4">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 rounded-full">
-                    <Crown className="h-5 w-5 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-700">Free Plan</span>
-                  </div>
-                  <h3 className="text-2xl font-bold text-gray-900">
-                    Unlock Your Full Potential
-                  </h3>
-                  <p className="text-gray-600 max-w-2xl mx-auto">
-                    You're currently on the free plan with 1 resume limit. Upgrade to Premium for unlimited resumes, 
-                    AI-powered suggestions, premium templates, and advanced analytics.
-                  </p>
-                  <div className="flex items-center justify-center gap-6 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>1 Resume</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>Basic Templates</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>PDF Export</span>
-                    </div>
-                  </div>
-                  <Button
-                    onClick={() => setShowSubscriptionModal(true)}
-                    size="lg"
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 text-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-                  >
-                    <Crown className="h-5 w-5 mr-2" />
-                    Upgrade to Premium - Only $1
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Quick Actions */}
-          <Card className="overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-gray-50 to-blue-50">
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-blue-600" />
-                Quick Actions
-              </CardTitle>
-              <CardDescription>
-                Get started with these essential tools
-              </CardDescription>
-            </CardHeader>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="border-0 bg-white/60 backdrop-blur-sm">
             <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Button
-                  variant="outline"
-                  className="h-24 flex flex-col gap-3 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 group"
-                  onClick={handleCreateResume}
-                >
-                  <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
-                    <Plus className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <span className="font-medium">New Resume</span>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  className="h-24 flex flex-col gap-3 hover:bg-green-50 hover:border-green-300 transition-all duration-200 group"
-                  onClick={() => setShowJobSearchModal(true)}
-                >
-                  <div className="p-2 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
-                    <Briefcase className="h-5 w-5 text-green-600" />
-                  </div>
-                  <span className="font-medium">Find Jobs</span>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  className="h-24 flex flex-col gap-3 hover:bg-purple-50 hover:border-purple-300 transition-all duration-200 group relative"
-                  onClick={isPremium ? () => {} : () => setShowSubscriptionModal(true)}
-                  disabled={!isPremium}
-                >
-                  <div className="p-2 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
-                    <Sparkles className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <span className="font-medium">AI Review</span>
-                  {!isPremium && <Crown className="absolute top-2 right-2 h-4 w-4 text-yellow-500" />}
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  className="h-24 flex flex-col gap-3 hover:bg-orange-50 hover:border-orange-300 transition-all duration-200 group relative"
-                  onClick={isPremium ? () => {} : () => setShowSubscriptionModal(true)}
-                  disabled={!isPremium}
-                >
-                  <div className="p-2 bg-orange-100 rounded-lg group-hover:bg-orange-200 transition-colors">
-                    <BarChart3 className="h-5 w-5 text-orange-600" />
-                  </div>
-                  <span className="font-medium">Analytics</span>
-                  {!isPremium && <Crown className="absolute top-2 right-2 h-4 w-4 text-yellow-500" />}
-                </Button>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Resumes</p>
+                  <p className="text-3xl font-bold text-gray-900">{stats.totalResumes}</p>
+                  <p className="text-xs text-green-600 mt-1">
+                    {isPremium ? 'Unlimited' : `${resumes.length}/3 used`}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <FileText className="h-6 w-6 text-blue-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Resumes Section */}
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Your Resumes</h2>
-                <p className="text-gray-600">Manage and edit your professional resumes</p>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <input
-                    type="text"
-                    placeholder="Search resumes..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm"
-                  />
+          <Card className="border-0 bg-white/60 backdrop-blur-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Downloads</p>
+                  <p className="text-3xl font-bold text-gray-900">{stats.totalDownloads}</p>
+                  <p className="text-xs text-green-600 mt-1">+{stats.totalDownloads} this week</p>
                 </div>
-                <Button
-                  onClick={handleCreateResume}
-                  className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Resume
-                </Button>
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <Download className="h-6 w-6 text-green-600" />
+                </div>
               </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[...Array(3)].map((_, i) => (
-                  <Card key={i} className="animate-pulse">
-                    <CardContent className="p-6">
-                      <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-                      <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-                      <div className="h-3 bg-gray-200 rounded w-2/3"></div>
-                    </CardContent>
-                  </Card>
-                ))}
+          <Card className="border-0 bg-white/60 backdrop-blur-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Profile Score</p>
+                  <p className="text-3xl font-bold text-gray-900">{stats.profileScore}%</p>
+                  <Progress value={stats.profileScore} className="mt-2 h-2" />
+                </div>
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Target className="h-6 w-6 text-purple-600" />
+                </div>
               </div>
-            ) : filteredResumes.length === 0 ? (
-              <Card className="text-center py-16 bg-gradient-to-br from-gray-50 to-blue-50 border-2 border-dashed border-gray-300">
-                <CardContent>
-                  <div className="max-w-md mx-auto space-y-4">
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-                      <FileText className="h-8 w-8 text-blue-600" />
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 bg-white/60 backdrop-blur-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">ATS Score</p>
+                  <p className="text-3xl font-bold text-gray-900">{stats.atsScore}%</p>
+                  <p className="text-xs text-blue-600 mt-1">Excellent</p>
+                </div>
+                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <Award className="h-6 w-6 text-orange-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Quick Actions */}
+            <Card className="border-0 bg-white/60 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Zap className="h-5 w-5 text-blue-600" />
+                  <span>Quick Actions</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Button 
+                    onClick={handleCreateResume}
+                    disabled={!canCreateNewResume}
+                    className={`h-20 ${
+                      canCreateNewResume 
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white' 
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <div className="text-center">
+                      {canCreateNewResume ? (
+                        <Plus className="h-6 w-6 mx-auto mb-1" />
+                      ) : (
+                        <Lock className="h-6 w-6 mx-auto mb-1" />
+                      )}
+                      <div className="text-sm font-medium">
+                        {canCreateNewResume ? 'New Resume' : 'Limit Reached'}
+                      </div>
+                      {!canCreateNewResume && (
+                        <div className="text-xs mt-1">Upgrade for unlimited</div>
+                      )}
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-900">
-                      {searchQuery ? 'No resumes found' : 'Ready to create your first resume?'}
-                    </h3>
-                    <p className="text-gray-600">
-                      {searchQuery 
-                        ? 'Try adjusting your search terms or create a new resume'
-                        : 'Start building your professional resume with our easy-to-use builder'
-                      }
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="h-20"
+                    onClick={() => router.push('/jobs')}
+                  >
+                    <div className="text-center">
+                      <Briefcase className="h-6 w-6 mx-auto mb-1" />
+                      <div className="text-sm font-medium">Browse Jobs</div>
+                    </div>
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="h-20"
+                    onClick={() => {
+                      // Scroll to tips section
+                      document.getElementById('resume-tips')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  >
+                    <div className="text-center">
+                      <Lightbulb className="h-6 w-6 mx-auto mb-1" />
+                      <div className="text-sm font-medium">Resume Tips</div>
+                    </div>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Upgrade to Premium Card */}
+            {!isPremium && (
+              <Card className="border-0 bg-gradient-to-br from-blue-50 to-purple-100 overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-full -translate-y-16 translate-x-16"></div>
+                <CardContent className="p-6 relative">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <Crown className="h-6 w-6 text-blue-600" />
+                    <h3 className="font-bold text-blue-900">Upgrade to Premium</h3>
+                    <Badge className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
+                      Limited Time
+                    </Badge>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <div className="flex items-baseline space-x-2 mb-2">
+                      <span className="text-3xl font-bold text-blue-900">$1</span>
+                      <span className="text-sm text-blue-700 line-through">$29</span>
+                      <Badge variant="destructive" className="text-xs">
+                        96% OFF
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-blue-800">
+                      Lifetime access to all premium features
                     </p>
-                    {!searchQuery && (
-                      <Button onClick={handleCreateResume} size="lg" className="mt-4">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Create Your First Resume
-                      </Button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mb-6 text-sm text-blue-800">
+                    <div className="flex items-center">
+                      <InfinityIcon className="h-4 w-4 mr-2 text-blue-600" />
+                      <span>Unlimited Resumes</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Brain className="h-4 w-4 mr-2 text-blue-600" />
+                      <span>AI Suggestions</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Palette className="h-4 w-4 mr-2 text-blue-600" />
+                      <span>Premium Templates</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Shield className="h-4 w-4 mr-2 text-blue-600" />
+                      <span>Priority Support</span>
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={handleUpgrade}
+                    disabled={isUpgrading}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 font-semibold"
+                  >
+                    {isUpgrading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Upgrade Now - $1
+                      </>
                     )}
+                  </Button>
+
+                  <div className="flex items-center justify-center mt-3 text-xs text-blue-700">
+                    <CreditCard className="h-3 w-3 mr-1" />
+                    <span>Secure payment via PhonePe</span>
                   </div>
                 </CardContent>
               </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredResumes.map((resume) => {
-                  const completionScore = getCompletionScore(resume);
-                  
-                  return (
-                    <Card key={resume._id} className="hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 bg-white border border-gray-200">
-                      <CardHeader className="pb-3">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg mb-1 line-clamp-1 text-gray-900">
-                              {resume.title}
-                            </CardTitle>
-                            <CardDescription className="line-clamp-1 text-gray-600">
-                              {resume.personal.name} • {resume.personal.title}
-                            </CardDescription>
-                          </div>
-                          
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-gray-100">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuItem asChild>
-                                <Link href={`/builder?resume=${resume._id}`} className="flex items-center">
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Edit Resume
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link href={`/preview?resume=${resume._id}`} className="flex items-center">
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  Preview
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => handleDuplicateResume(resume._id, resume.title)}
-                              >
-                                <Copy className="h-4 w-4 mr-2" />
-                                Duplicate
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => handleDeleteResume(resume._id)}
-                                className="text-red-600 focus:text-red-600"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </CardHeader>
-                      
-                      <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">Completion</span>
-                          <span className="font-medium text-gray-900">{completionScore}%</span>
-                        </div>
-                        <Progress value={completionScore} className="h-2" />
-                        
-                        <div className="flex items-center justify-between text-sm text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            <span>{new Date(resume.updatedAt).toLocaleDateString()}</span>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-1">
-                              <Download className="h-3 w-3" />
-                              <span>{resume.exportCount || 0}</span>
-                            </div>
-                            {resume.atsScore && (
-                              <Badge variant="secondary" className="bg-green-100 text-green-700">
-                                ATS: {resume.atsScore}%
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className="flex gap-2 pt-2">
-                          <Button asChild size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700">
-                            <Link href={`/builder?resume=${resume._id}`}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </Link>
-                          </Button>
-                          <Button asChild variant="outline" size="sm" className="flex-1 hover:bg-gray-50">
-                            <Link href={`/preview?resume=${resume._id}`}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              Preview
-                            </Link>
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
             )}
+
+            {/* Your Resumes */}
+            <Card className="border-0 bg-white/60 backdrop-blur-sm">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center space-x-2">
+                    <FileText className="h-5 w-5 text-blue-600" />
+                    <span>Your Resumes</span>
+                    <Badge variant="secondary">{resumes.length}</Badge>
+                  </CardTitle>
+                  <div className="flex items-center space-x-2">
+                    <Button variant="outline" size="sm">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Manage
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {resumes.length === 0 ? (
+                  <div className="text-center py-8">
+                    <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No resumes yet</h3>
+                    <p className="text-gray-600 mb-4">Create your first resume to get started</p>
+                    <Button onClick={handleCreateResume}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Resume
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {resumes.map((resume) => (
+                      <div key={resume._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <FileText className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900">{resume.title}</h4>
+                            <div className="flex items-center space-x-4 text-sm text-gray-500">
+                              <span>{resume.personal.name} • {resume.personal.title}</span>
+                              <span>•</span>
+                              <span>{new Date(resume.updatedAt).toLocaleDateString()}</span>
+                              <span>•</span>
+                              <span>{resume.exportCount || 0} exports</span>
+                              <span>•</span>
+                              <span>v{resume.version}</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleEditResume(resume._id)}
+                            title="Edit Resume"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handlePreviewResume(resume._id)}
+                            title="Preview Resume"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleShareResume(resume)}
+                            title="Share Resume"
+                          >
+                            <Share2 className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" title="Delete Resume">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Resume</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete "{resume.title}"? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction 
+                                  onClick={() => handleDeleteResume(resume._id)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Resume Tips */}
+            <Card id="resume-tips" className="border-0 bg-white/60 backdrop-blur-sm">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center space-x-2">
+                    <Lightbulb className="h-5 w-5 text-yellow-600" />
+                    <span>Resume Tips</span>
+                  </CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {getSmartTips().map((tip) => (
+                  <div key={tip.id} className={`p-3 rounded-lg ${tip.bgColor} relative`}>
+                    {tip.premium && !isPremium && (
+                      <div className="absolute top-2 right-2">
+                        <Crown className="h-4 w-4 text-amber-500" />
+                      </div>
+                    )}
+                    <div className="flex items-start space-x-3">
+                      <div className={`${tip.color} mt-0.5`}>
+                        {tip.icon}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className={`font-medium ${tip.color} text-sm`}>
+                          {tip.title}
+                        </h4>
+                        <p className="text-xs text-gray-600 mt-1">
+                          {tip.description}
+                        </p>
+                        {tip.premium && !isPremium && (
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="mt-2 text-xs h-6"
+                            onClick={handleUpgrade}
+                          >
+                            Unlock with Premium
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                <Button variant="outline" className="w-full text-sm">
+                  <Eye className="mr-2 h-4 w-4" />
+                  View All Tips
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Recent Activity */}
+            <Card className="border-0 bg-white/60 backdrop-blur-sm">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center space-x-2">
+                    <Activity className="h-5 w-5 text-green-600" />
+                    <span>Recent Activity</span>
+                  </CardTitle>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={refreshActivities}
+                    disabled={refreshingActivities}
+                  >
+                    <RefreshCw className={`h-4 w-4 ${refreshingActivities ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {activities.length === 0 ? (
+                  <div className="text-center py-4">
+                    <Activity className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600">No recent activity</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Start by creating your first resume
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {activities.map((activity) => (
+                      <div key={activity._id} className="flex items-center space-x-3 text-sm">
+                        {getActivityIcon(activity.action)}
+                        <span className="text-gray-700 flex-1">
+                          {getActivityMessage(activity)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
-      </main>
-
-      {/* Modals */}
-      <SubscriptionModal
-        open={showSubscriptionModal}
-        onOpenChange={setShowSubscriptionModal}
-        onSubscriptionSuccess={loadDashboardData}
-      />
-      
-      <JobSearchModal
-        open={showJobSearchModal}
-        onOpenChange={setShowJobSearchModal}
-        resumeData={resumes[0]}
-      />
+      </div>
     </div>
   );
 }
