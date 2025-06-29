@@ -44,12 +44,16 @@ interface ResumeHeaderProps {
   resumeData: ResumeData;
   templateId: string;
   onSave: () => void;
+  resumeId?: string;
+  onResumeIdChange?: (newResumeId: string) => void;
 }
 
 export function ResumeHeader({
   resumeData,
   templateId,
   onSave,
+  resumeId,
+  onResumeIdChange,
 }: ResumeHeaderProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -67,7 +71,7 @@ export function ResumeHeader({
     if (!template) return;
 
     // Allow switching to any template (including premium ones)
-    router.push(`/builder?template=${id}`);
+    router.push(`/builder?template=${id}${resumeId ? `&resume=${resumeId}` : ''}`);
     
     // Show notification for premium templates if user is not premium
     if (template.premium && !subscription.isPremium) {
