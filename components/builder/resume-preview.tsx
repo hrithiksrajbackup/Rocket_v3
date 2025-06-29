@@ -11,7 +11,8 @@ import {
   EyeOff,
   Smartphone,
   Monitor,
-  Tablet
+  Tablet,
+  Brain
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -26,6 +27,16 @@ import { TechnicalTemplate } from '@/components/templates/technical-template';
 import { AcademicTemplate } from '@/components/templates/academic-template';
 import { HealthcareTemplate } from '@/components/templates/healthcare-template';
 import { Badge } from '@/components/ui/badge';
+import { AIResumeAnalyzer } from './ai-resume-analyzer';
+import { PremiumBadge } from '@/components/ui/premium-badge';
+import { getUserSubscription } from '@/lib/subscription';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 interface ResumePreviewProps {
   resumeData: ResumeData;
@@ -37,7 +48,10 @@ export function ResumePreview({ resumeData, templateId }: ResumePreviewProps) {
   const [fullscreen, setFullscreen] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [viewMode, setViewMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [showAIAnalyzer, setShowAIAnalyzer] = useState(false);
   const resumeRef = useRef<HTMLDivElement>(null);
+
+  const subscription = getUserSubscription();
 
   const handleZoomChange = (value: number[]) => {
     setZoom(value[0]);
@@ -93,7 +107,7 @@ export function ResumePreview({ resumeData, templateId }: ResumePreviewProps) {
       "flex flex-col flex-1 bg-gradient-to-br from-gray-50 to-gray-100",
       fullscreen ? "fixed inset-0 z-50 bg-white" : ""
     )}>
-      {/* Simplified Toolbar - Removed Export/Share buttons (they're in header) */}
+      {/* Toolbar */}
       <div className="flex items-center justify-between border-b p-4 bg-white/80 backdrop-blur-sm shadow-sm">
         <div className="flex items-center space-x-4">
           {/* Zoom Controls */}
@@ -151,6 +165,18 @@ export function ResumePreview({ resumeData, templateId }: ResumePreviewProps) {
         </div>
         
         <div className="flex items-center space-x-2">
+          {/* AI Analyzer Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAIAnalyzer(true)}
+            className="gap-2 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200 hover:from-purple-100 hover:to-pink-100"
+          >
+            <Brain className="h-4 w-4 text-purple-600" />
+            <span className="text-purple-700 font-medium">AI Analyzer</span>
+            {!subscription.isPremium && <PremiumBadge size="sm" />}
+          </Button>
+
           {/* Grid Toggle */}
           <Button
             variant={showGrid ? 'default' : 'outline'}
@@ -230,6 +256,26 @@ export function ResumePreview({ resumeData, templateId }: ResumePreviewProps) {
           </div>
         </div>
       </div>
+
+      {/* AI Analyzer Dialog */}
+      <Dialog open={showAIAnalyzer} onOpenChange={setShowAIAnalyzer}>
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-purple-600" />
+              AI Resume Analyzer
+            </DialogTitle>
+            <DialogDescription>
+              Get comprehensive AI-powered analysis of your resume including spelling checks, 
+              ATS optimization, and professional recommendations.
+            </DialogDescription>
+          </DialogHeader>
+          <AIResumeAnalyzer
+            resumeData={resumeData}
+            onClose={() => setShowAIAnalyzer(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
