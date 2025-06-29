@@ -27,6 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
@@ -84,7 +85,6 @@ export function ResumeHeader({
       setShowUpgradeDialog(true);
       return;
     }
-    // Export functionality would be handled by ExportButton
   };
 
   // Group templates by category for better organization
@@ -125,12 +125,12 @@ export function ResumeHeader({
                   <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuContent align="start" className="w-80 max-h-96 overflow-y-auto">
                 {Object.entries(groupedTemplates).map(([category, categoryTemplates]) => (
                   <div key={category}>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      {category}
-                    </div>
+                    <DropdownMenuLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {category} Templates
+                    </DropdownMenuLabel>
                     {categoryTemplates.map((template) => {
                       const canUse = canUseTemplate(template.id);
                       return (
@@ -157,6 +157,11 @@ export function ResumeHeader({
                           <span className="text-xs text-muted-foreground">
                             {template.description}
                           </span>
+                          {!canUse && (
+                            <span className="text-xs text-orange-600 font-medium">
+                              Premium template - Upgrade to unlock
+                            </span>
+                          )}
                         </DropdownMenuItem>
                       );
                     })}

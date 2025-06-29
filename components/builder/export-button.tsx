@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { ExportDialog } from './export-dialog';
 import { PremiumUpgradeDialog } from '@/components/dialogs/premium-upgrade-dialog';
 import { ResumeData } from '@/lib/types';
-import { canExportResume } from '@/lib/subscription';
+import { canExportResume, getExportLimitMessage } from '@/lib/subscription';
 import { Download } from 'lucide-react';
 import { PremiumBadge } from '@/components/ui/premium-badge';
+import { useToast } from '@/hooks/use-toast';
 
 interface ExportButtonProps {
   resumeData: ResumeData;
@@ -26,9 +27,15 @@ export function ExportButton({
 }: ExportButtonProps) {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const { toast } = useToast();
 
   const handleExportClick = () => {
     if (!canExportResume()) {
+      toast({
+        title: "Premium Feature",
+        description: getExportLimitMessage(),
+        variant: "destructive",
+      });
       setShowUpgradeDialog(true);
       return;
     }

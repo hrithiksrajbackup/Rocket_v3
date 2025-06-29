@@ -30,4 +30,18 @@ export function canExportResume(): boolean {
   return subscription.isPremium;
 }
 
+export function getExportLimitMessage(): string {
+  const subscription = getUserSubscription();
+  
+  if (subscription.isPremium) {
+    return "Unlimited exports available";
+  }
+  
+  return "Export feature requires Premium subscription. Upgrade to export your resume in PDF, DOCX, and PNG formats.";
+}
+
+export function getTemplateLimitMessage(templateName: string): string {
+  return `The ${templateName} template is part of our premium collection. Upgrade to Pro to access all premium templates and advanced features.`;
+}
+
 import { getTemplateConfig } from './template-config';
